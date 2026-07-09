@@ -171,6 +171,7 @@
 </head>
 <body>
 <div id="app" class="app-shell"></div>
+<input type="file" id="importFileInput" accept=".json,application/json" style="display:none" onchange="handleImportFile(event)">
 
 <script>
 /* ============ DATA ============ */
@@ -501,6 +502,45 @@ async function clearHistory(){
   }
 }
 
+/* ============ EXPORT / IMPORT BACKUP ============ */
+function exportData(){
+  const data = { version:1, exportedAt: Date.now(), players, settings, customCategories, history };
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const d = new Date();
+  const stamp = d.getFullYear()+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0')+'-'+String(d.getHours()).padStart(2,'0')+String(d.getMinutes()).padStart(2,'0');
+  a.href = url;
+  a.download = 'spy-hunt-backup-'+stamp+'.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function triggerImport(){ document.getElementById('importFileInput').click(); }
+async function handleImportFile(evt){
+  const file = evt.target.files[0];
+  if(!file) return;
+  try{
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if(Array.isArray(data.players)) players = data.players;
+    if(data.settings) settings = Object.assign(settings, data.settings);
+    if(data.customCategories) customCategories = data.customCategories;
+    if(Array.isArray(data.history)) history = data.history;
+    await storageSet('roster', players);
+    await storageSet('settings', settings);
+    await storageSet('customCategories', customCategories);
+    await storageSet('history', history);
+    evt.target.value='';
+    alert('นำเข้าข้อมูลสำเร็จ! โหลดผู้เล่น '+players.length+' คน และหมวดหมู่/ประวัติที่บันทึกไว้เรียบร้อยแล้ว');
+    screen='home';
+    render();
+  }catch(e){
+    alert('ไม่สามารถอ่านไฟล์นี้ได้ กรุณาตรวจสอบว่าเป็นไฟล์สำรอง .json ที่ได้จากเกมนี้');
+  }
+}
+
 /* ============ RENDER ============ */
 function render(){
   const app = document.getElementById('app');
@@ -551,10 +591,18 @@ function screenHome(){
     <div class="eyebrow">TOP SECRET · ห้องเรียน</div>
     <h1>สปายจับผิด</h1>
     <p class="dim">เกมค้นหาสายลับสำหรับเล่นในห้องเรียน ใช้เครื่องเดียว ส่งต่อกันดูโรลลับทีละคน</p>
+    ${!hasStorage ? `<div class="warn-box">⚠️ กำลังเปิดไฟล์นี้นอกระบบ Claude ข้อมูลจะไม่ถูกจำไว้อัตโนมัติเมื่อปิดหน้าต่าง แนะนำให้กด "ส่งออกข้อมูล" เก็บเป็นไฟล์ไว้ทุกครั้งหลังแก้ไขผู้เล่น/หมวดหมู่ แล้วค่อย "นำเข้าข้อมูล" ตอนเปิดเกมครั้งต่อไป</div>` : ''}
     <div class="stack">
       <button class="btn btn-primary" onclick="screen='setup';render();">🕵️ เริ่มเกมใหม่</button>
       <button class="btn btn-secondary" onclick="screen='rules';render();">📖 วิธีเล่น / กติกา</button>
       <button class="btn btn-secondary" onclick="screen='history';render();">🗂 ประวัติการเล่น ${totalGames?('('+totalGames+')'):''}</button>
+    </div>
+    <div class="divider"></div>
+    <h3>สำรองข้อมูล</h3>
+    <p class="dim">บันทึกรายชื่อ/หมวดหมู่/ประวัติเป็นไฟล์ เพื่อโหลดกลับมาใช้ได้ทุกเครื่อง ทุกครั้งที่เปิดใหม่</p>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="exportData()">💾 ส่งออกข้อมูล</button>
+      <button class="btn btn-secondary" onclick="triggerImport()">📂 นำเข้าข้อมูล</button>
     </div>
   </div>`;
 }
@@ -604,6 +652,10 @@ function screenSetup(){
       ${players.map((p,i)=>`<div class="player-chip"><span><span class="num">${String(i+1).padStart(2,'0')}</span>${escapeHtml(p.name)}</span><button class="del" onclick="removePlayer('${p.id}')">✕</button></div>`).join('')}
     </div>` : `<div class="empty-note">ยังไม่มีผู้เล่น — เพิ่มชื่อด้านบนเลย</div>`}
     ${setupWarning ? `<div class="warn-box">${setupWarning}</div>` : ''}
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="exportData()">💾 ส่งออกข้อมูล</button>
+      <button class="btn btn-ghost" onclick="triggerImport()">📂 นำเข้าข้อมูล</button>
+    </div>
   </div>
 
   <div class="card">
