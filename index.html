@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>สปายจับผิด | เกมค้นหาสายลับในห้องเรียน</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@500;600;700;800&family=Sarabun:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0F1417;
+    --panel:#1B2226;
+    --panel-alt:#232C31;
+    --panel-line:rgba(255,255,255,.07);
+    --paper:#EDE6D6;
+    --paper-line:#DCD3B9;
+    --gold:#C7A03C;
+    --gold-ink:#1A1500;
+    --red:#A33B32;
+    --green:#4F7C58;
+    --ink:#E8E3D6;
+    --ink-dim:#8FA0A6;
+    --ink-paper:#2B2620;
+    --radius:16px;
+    --shadow:0 12px 34px rgba(0,0,0,.5);
+    --font-display:'Kanit',sans-serif;
+    --font-body:'Sarabun',sans-serif;
+    --font-mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    min-height:100vh;
+    background:
+      radial-gradient(circle at 15% -10%, #1c2933 0%, transparent 45%),
+      radial-gradient(circle at 100% 0%, #1a2228 0%, transparent 40%),
+      var(--bg);
+    color:var(--ink);
+    font-family:var(--font-body);
+    -webkit-font-smoothing:antialiased;
+  }
+  button,input{font-family:inherit;}
+  .app-shell{max-width:520px;margin:0 auto;padding:22px 16px 48px;min-height:100vh;}
+  .app-shell.wide{max-width:880px;}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+  .brand{font-family:var(--font-display);font-weight:800;font-size:21px;letter-spacing:.3px;display:flex;align-items:center;gap:8px;}
+  .brand .tag{font-family:var(--font-mono);font-size:9.5px;background:var(--red);color:#fff;padding:3px 7px;border-radius:4px;letter-spacing:1.5px;font-weight:600;}
+  .icon-btn{background:var(--panel-alt);border:1px solid var(--panel-line);color:var(--ink-dim);width:38px;height:38px;border-radius:10px;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+
+  .phase-tabs{display:flex;gap:3px;margin-bottom:16px;}
+  .phase-tabs .tab{flex:1;text-align:center;font-family:var(--font-mono);font-size:10.5px;padding:8px 2px;background:var(--panel);color:var(--ink-dim);border-radius:8px 8px 0 0;opacity:.45;letter-spacing:.3px;}
+  .phase-tabs .tab.active{opacity:1;background:var(--panel-alt);color:var(--gold);font-weight:700;box-shadow:inset 0 2px 0 var(--gold);}
+  .phase-tabs .tab.done{opacity:.85;color:var(--green);}
+
+  .card{background:var(--panel);border-radius:var(--radius);padding:22px 18px;box-shadow:var(--shadow);border:1px solid var(--panel-line);}
+  .card + .card{margin-top:14px;}
+  h1,h2,h3{font-family:var(--font-display);margin:0 0 6px;font-weight:700;}
+  h1{font-size:26px;}
+  h2{font-size:19px;}
+  h3{font-size:15px;color:var(--gold);letter-spacing:.3px;}
+  p{line-height:1.65;color:var(--ink);margin:0 0 10px;}
+  .dim{color:var(--ink-dim);font-size:13.5px;}
+  .eyebrow{font-family:var(--font-mono);font-size:11px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;}
+  .center{text-align:center;}
+  .divider{height:1px;background:var(--panel-line);margin:16px 0;}
+
+  .btn{font-family:var(--font-display);font-weight:600;font-size:15px;padding:14px 18px;border-radius:11px;border:none;cursor:pointer;width:100%;transition:transform .12s ease, filter .12s ease, opacity .12s;}
+  .btn:active{transform:scale(.97);}
+  .btn-primary{background:var(--gold);color:var(--gold-ink);}
+  .btn-secondary{background:var(--panel-alt);color:var(--ink);border:1px solid var(--panel-line);}
+  .btn-danger{background:var(--red);color:#fff;}
+  .btn-green{background:var(--green);color:#fff;}
+  .btn-ghost{background:transparent;color:var(--ink-dim);border:1px dashed var(--panel-line);}
+  .btn:disabled{opacity:.35;cursor:not-allowed;}
+  .btn-row{display:flex;gap:10px;margin-top:10px;}
+  .btn-row .btn{flex:1;}
+  .stack{display:flex;flex-direction:column;gap:10px;margin-top:10px;}
+
+  .input{width:100%;padding:13px 14px;border-radius:10px;border:1px solid var(--panel-line);background:var(--panel-alt);color:var(--ink);font-size:15px;}
+  .input:focus{outline:2px solid var(--gold);outline-offset:1px;}
+  .add-row{display:flex;gap:8px;}
+  .add-row .input{flex:1;}
+  .add-row button{width:52px;flex-shrink:0;background:var(--gold);color:var(--gold-ink);border:none;border-radius:10px;font-size:22px;font-weight:700;cursor:pointer;}
+
+  .player-list{display:flex;flex-direction:column;gap:8px;margin:14px 0 4px;}
+  .player-chip{display:flex;align-items:center;justify-content:space-between;background:var(--panel-alt);padding:11px 14px;border-radius:10px;font-family:var(--font-mono);font-size:14px;border:1px solid var(--panel-line);}
+  .player-chip .num{color:var(--gold);margin-right:8px;}
+  .player-chip .del{background:none;border:none;color:var(--red);font-size:19px;cursor:pointer;padding:0 4px;}
+  .empty-note{font-family:var(--font-mono);font-size:12.5px;color:var(--ink-dim);text-align:center;padding:18px 0;border:1px dashed var(--panel-line);border-radius:10px;}
+
+  .stepper-row{display:flex;align-items:center;justify-content:space-between;padding:6px 0;}
+  .stepper{display:flex;align-items:center;gap:16px;}
+  .stepper button{width:36px;height:36px;border-radius:50%;border:1px solid var(--panel-line);background:var(--panel-alt);color:var(--gold);font-size:19px;cursor:pointer;}
+  .stepper .val{font-family:var(--font-mono);font-size:18px;min-width:56px;text-align:center;}
+
+  .switch-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;}
+  .switch{position:relative;width:46px;height:26px;background:var(--panel-alt);border-radius:20px;cursor:pointer;border:1px solid var(--panel-line);flex-shrink:0;}
+  .switch.on{background:var(--green);border-color:var(--green);}
+  .switch::after{content:'';position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:left .15s ease;}
+  .switch.on::after{left:22px;}
+
+  .chip-grid{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;}
+  .chip-toggle{font-family:var(--font-mono);font-size:12.5px;padding:8px 12px;border-radius:20px;border:1px solid var(--panel-line);background:var(--panel-alt);color:var(--ink-dim);cursor:pointer;}
+  .chip-toggle.on{background:var(--gold);color:var(--gold-ink);border-color:var(--gold);font-weight:600;}
+
+  .warn-box{background:rgba(163,59,50,.15);border:1px solid var(--red);color:#f0b8b3;padding:11px 13px;border-radius:10px;font-size:13.5px;margin-top:10px;}
+
+  .pass-screen{text-align:center;padding:30px 6px;}
+  .pass-screen .name-big{font-family:var(--font-display);font-size:30px;font-weight:800;color:var(--gold);margin:14px 0;}
+
+  .paper-card{background:var(--paper);color:var(--ink-paper);border-radius:12px;padding:30px 22px;box-shadow:var(--shadow);text-align:center;position:relative;}
+  .paper-card .role-name{font-family:var(--font-display);font-size:26px;font-weight:800;margin:8px 0;}
+  .paper-card .word-big{font-family:var(--font-display);font-size:32px;font-weight:800;margin:14px 0;color:var(--ink-paper);}
+  .paper-card .cat-label{font-family:var(--font-mono);font-size:11px;letter-spacing:2px;color:#6b6250;text-transform:uppercase;}
+  .paper-card .instr{font-size:14px;color:#4a4436;line-height:1.6;margin-top:14px;}
+
+  .stamp{width:140px;height:140px;border:5px solid var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--red);font-family:var(--font-display);font-weight:800;transform:rotate(-10deg);margin:14px auto 6px;text-align:center;animation:stamp-in .4s cubic-bezier(.2,1.5,.4,1) both;}
+  .stamp.gold{border-color:var(--gold);color:var(--gold);}
+  .stamp.green{border-color:var(--green);color:var(--green);}
+  .stamp span{font-size:17px;line-height:1.15;}
+  .stamp small{font-family:var(--font-mono);font-size:9px;font-weight:500;letter-spacing:1.5px;margin-top:4px;}
+  @keyframes stamp-in{0%{transform:rotate(-10deg) scale(2.2);opacity:0;}55%{transform:rotate(-10deg) scale(.9);opacity:1;}100%{transform:rotate(-10deg) scale(1);opacity:1;}}
+
+  .timer-display{font-family:var(--font-mono);font-size:66px;text-align:center;letter-spacing:1px;font-weight:700;color:var(--gold);margin:6px 0 2px;}
+  .timer-display.warn{color:var(--red);animation:pulse .6s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .timer-sub{text-align:center;font-family:var(--font-mono);font-size:12px;color:var(--ink-dim);margin-bottom:14px;}
+
+  .active-players{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin:14px 0;}
+  .active-players span{font-family:var(--font-mono);font-size:12.5px;background:var(--panel-alt);padding:6px 11px;border-radius:16px;border:1px solid var(--panel-line);}
+
+  .vote-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 4px;}
+  @media(min-width:640px){.vote-grid{grid-template-columns:repeat(3,1fr);}}
+  .vote-card{background:var(--panel-alt);border:2px solid var(--panel-line);border-radius:12px;padding:18px 8px;text-align:center;cursor:pointer;font-family:var(--font-display);font-weight:600;font-size:15px;}
+  .vote-card.selected{border-color:var(--red);background:rgba(163,59,50,.18);color:#f0b8b3;}
+
+  .result-banner{text-align:center;padding:8px 0 4px;}
+  .result-banner .headline{font-family:var(--font-display);font-size:28px;font-weight:800;}
+  .result-banner.spy .headline{color:var(--red);}
+  .result-banner.villager .headline{color:var(--green);}
+  .result-banner.joker .headline{color:var(--gold);}
+
+  table.role-table{width:100%;border-collapse:collapse;margin:14px 0 4px;font-family:var(--font-mono);font-size:13px;}
+  table.role-table th{text-align:left;color:var(--ink-dim);font-weight:500;padding:6px;border-bottom:1px solid var(--panel-line);font-size:11px;letter-spacing:.5px;text-transform:uppercase;}
+  table.role-table td{padding:9px 6px;border-bottom:1px solid var(--panel-line);}
+  .role-badge{padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;letter-spacing:.3px;}
+  .role-badge.spy{background:var(--red);color:#fff;}
+  .role-badge.villager{background:var(--green);color:#fff;}
+  .role-badge.joker{background:var(--gold);color:var(--gold-ink);}
+  .status-out{color:var(--ink-dim);font-size:11px;}
+
+  .history-item{background:var(--panel-alt);border-radius:10px;padding:12px 14px;margin-bottom:9px;border:1px solid var(--panel-line);}
+  .history-item .top-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+  .history-item .date{font-family:var(--font-mono);font-size:11px;color:var(--ink-dim);}
+
+  .stats-table{width:100%;border-collapse:collapse;font-family:var(--font-mono);font-size:12.5px;margin-top:6px;}
+  .stats-table th{text-align:left;color:var(--ink-dim);font-weight:500;padding:6px 5px;border-bottom:1px solid var(--panel-line);font-size:10.5px;text-transform:uppercase;}
+  .stats-table td{padding:7px 5px;border-bottom:1px solid var(--panel-line);}
+
+  .rules-block h3{margin-top:16px;}
+  .rules-block ul{margin:6px 0;padding-left:20px;}
+  .rules-block li{margin-bottom:6px;line-height:1.6;}
+
+  ::selection{background:var(--gold);color:var(--gold-ink);}
+  @media (prefers-reduced-motion: reduce){
+    .stamp{animation:none;}
+    .timer-display.warn{animation:none;}
+  }
+</style>
+</head>
+<body>
+<div id="app" class="app-shell"></div>
+
+<script>
+/* ============ DATA ============ */
+const CATEGORIES = {
+  "อาหาร": ["ส้มตำ","ต้มยำกุ้ง","ผัดไทย","ข้าวมันไก่","แกงเขียวหวาน","ข้าวเหนียวมะม่วง","หมูกระทะ","ก๋วยเตี๋ยวเรือ","ลาบหมู","ขนมครก"],
+  "สถานที่": ["โรงเรียน","โรงพยาบาล","สนามบิน","ตลาดนัด","ห้างสรรพสินค้า","วัด","สวนสาธารณะ","ชายหาด","ร้านตัดผม","สถานีตำรวจ"],
+  "อาชีพ": ["ครู","หมอ","ตำรวจ","นักดับเพลิง","เชฟ","นักบิน","ทนายความ","ช่างไฟฟ้า","พยาบาล","เกษตรกร"],
+  "สัตว์": ["ช้าง","สิงโต","เพนกวิน","ยีราฟ","จระเข้","ฉลาม","กระต่าย","นกฮูก","ลิง","ปลาวาฬ"],
+  "กีฬา": ["ฟุตบอล","บาสเกตบอล","แบดมินตัน","มวยไทย","ว่ายน้ำ","เทนนิส","วอลเลย์บอล","ปิงปอง","กอล์ฟ","วิ่งมาราธอน"],
+  "ของใช้ในบ้าน": ["ตู้เย็น","เครื่องซักผ้า","พัดลม","หม้อหุงข้าว","เตารีด","โซฟา","กระทะ","เครื่องดูดฝุ่น","ไมโครเวฟ","เตียงนอน"],
+  "เทศกาล": ["สงกรานต์","ลอยกระทง","วันปีใหม่","วันเด็ก","วันแม่","วันฮาโลวีน","วันวาเลนไทน์","วันตรุษจีน","วันครู","วันวิสาขบูชา"],
+  "ยานพาหนะ": ["รถไฟ","เครื่องบิน","เรือ","มอเตอร์ไซค์","รถเมล์","รถไฟฟ้า","จักรยาน","รถตุ๊กตุ๊ก","เรือสำเภา","รถบรรทุก"]
+};
+const CAT_NAMES = Object.keys(CATEGORIES);
+
+/* ============ STORAGE (falls back to memory if outside claude.ai) ============ */
+const hasStorage = (typeof window.storage !== 'undefined');
+const memStore = {};
+async function storageGet(key, fallback){
+  try{
+    if(hasStorage){
+      const res = await window.storage.get(key, false);
+      return res ? JSON.parse(res.value) : fallback;
+    }else{
+      return memStore[key] !== undefined ? JSON.parse(memStore[key]) : fallback;
+    }
+  }catch(e){ return fallback; }
+}
+async function storageSet(key, value){
+  try{
+    if(hasStorage){ await window.storage.set(key, JSON.stringify(value), false); }
+    else{ memStore[key] = JSON.stringify(value); }
+  }catch(e){ console.error('storage set failed', e); }
+}
+async function storageDelete(key){
+  try{
+    if(hasStorage){ await window.storage.delete(key, false); }
+    else{ delete memStore[key]; }
+  }catch(e){ /* ignore */ }
+}
+
+/* ============ STATE ============ */
+let players = [];        // {id, name}
+let settings = { spyCount:1, includeJoker:false, timerSeconds:180, categories:[...CAT_NAMES] };
+let history = [];        // past game records
+let customCategories = {}; // {name: [word, word, ...]}
+let game = null;         // active game state
+let screen = 'home';
+let timerInterval = null;
+let timerRunning = false;
+let selectedVoteId = null;
+
+function uid(){ return 'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+
+/* ============ INIT ============ */
+async function init(){
+  players = await storageGet('roster', []);
+  const savedSettings = await storageGet('settings', null);
+  if(savedSettings) settings = Object.assign(settings, savedSettings);
+  customCategories = await storageGet('customCategories', {});
+  history = await storageGet('history', []);
+  render();
+}
+
+/* ============ HELPERS ============ */
+function allCategories(){ return Object.assign({}, CATEGORIES, customCategories); }
+function allCatNames(){ return Object.keys(allCategories()); }
+function playerById(id){ return players.find(p=>p.id===id); }
+function fmtTime(sec){
+  sec = Math.max(0, sec);
+  const m = Math.floor(sec/60), s = sec%60;
+  return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+function fmtDate(ts){
+  const d = new Date(ts);
+  return d.toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+function playBuzzer(){
+  try{
+    const ctx = new (window.AudioContext||window.webkitAudioContext)();
+    [0,0.28,0.56].forEach(t=>{
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type='square'; o.frequency.value = 660;
+      g.gain.setValueAtTime(0.0001, ctx.currentTime+t);
+      g.gain.exponentialRampToValueAtTime(0.18, ctx.currentTime+t+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime+t+0.22);
+      o.connect(g); g.connect(ctx.destination);
+      o.start(ctx.currentTime+t); o.stop(ctx.currentTime+t+0.25);
+    });
+  }catch(e){ /* audio not available */ }
+  if(navigator.vibrate) navigator.vibrate([200,100,200,100,200]);
+}
+function shuffled(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+
+/* ============ PLAYER / SETTINGS ACTIONS ============ */
+async function addPlayer(){
+  const inp = document.getElementById('newPlayerInput');
+  const name = inp.value.trim();
+  if(!name) return;
+  players.push({id:uid(), name});
+  inp.value='';
+  await storageSet('roster', players);
+  render();
+  document.getElementById('newPlayerInput')?.focus();
+}
+async function removePlayer(id){
+  players = players.filter(p=>p.id!==id);
+  await storageSet('roster', players);
+  render();
+}
+async function updateSettings(){ await storageSet('settings', settings); }
+function maxSpyAllowed(){
+  return Math.max(1, players.length - (settings.includeJoker?1:0) - 1);
+}
+function changeSpyCount(delta){
+  settings.spyCount = Math.min(maxSpyAllowed(), Math.max(1, settings.spyCount+delta));
+  updateSettings(); render();
+}
+function toggleJoker(){
+  settings.includeJoker = !settings.includeJoker;
+  settings.spyCount = Math.min(settings.spyCount, maxSpyAllowed());
+  updateSettings(); render();
+}
+function changeTimer(deltaSec){
+  settings.timerSeconds = Math.min(900, Math.max(30, settings.timerSeconds+deltaSec));
+  updateSettings(); render();
+}
+function toggleCategory(nameEnc){
+  const name = decodeURIComponent(nameEnc);
+  if(settings.categories.includes(name)){
+    if(settings.categories.length>1) settings.categories = settings.categories.filter(c=>c!==name);
+  }else{
+    settings.categories.push(name);
+  }
+  updateSettings(); render();
+}
+async function addCustomCategory(){
+  const nameInp = document.getElementById('customCatName');
+  const wordsInp = document.getElementById('customCatWords');
+  const name = nameInp.value.trim();
+  const words = wordsInp.value.split(',').map(w=>w.trim()).filter(Boolean);
+  const uniqueWords = [...new Set(words)];
+  if(!name){ flashSetupWarning('ตั้งชื่อหมวดหมู่ก่อนนะครับ'); return; }
+  if(CAT_NAMES.includes(name) || Object.keys(customCategories).includes(name)){ flashSetupWarning('มีหมวดหมู่ชื่อนี้อยู่แล้ว ลองใช้ชื่ออื่น'); return; }
+  if(uniqueWords.length<3){ flashSetupWarning('ใส่คำอย่างน้อย 3 คำ คั่นด้วยจุลภาค (,)'); return; }
+  customCategories[name] = uniqueWords;
+  settings.categories.push(name);
+  await storageSet('customCategories', customCategories);
+  await updateSettings();
+  nameInp.value=''; wordsInp.value='';
+  render();
+}
+async function deleteCustomCategory(nameEnc){
+  const name = decodeURIComponent(nameEnc);
+  delete customCategories[name];
+  settings.categories = settings.categories.filter(c=>c!==name);
+  await storageSet('customCategories', customCategories);
+  await updateSettings();
+  render();
+}
+
+/* ============ GAME FLOW ============ */
+function buildRoles(){
+  const order = shuffled(players.map(p=>p.id));
+  const roles = {};
+  let i=0;
+  for(let k=0;k<settings.spyCount;k++){ roles[order[i]]='spy'; i++; }
+  if(settings.includeJoker){ roles[order[i]]='joker'; i++; }
+  for(;i<order.length;i++){ roles[order[i]]='villager'; }
+  return roles;
+}
+function startGame(){
+  if(players.length<3){ flashSetupWarning('ต้องมีผู้เล่นอย่างน้อย 3 คนถึงจะเริ่มเกมได้'); return; }
+  settings.spyCount = Math.min(settings.spyCount, maxSpyAllowed());
+  const roles = buildRoles();
+  const catPool = allCategories();
+  const validSelected = settings.categories.filter(c=>catPool[c]);
+  const cats = validSelected.length ? validSelected : Object.keys(catPool);
+  const cat = cats[Math.floor(Math.random()*cats.length)];
+  const words = catPool[cat];
+  const word = words[Math.floor(Math.random()*words.length)];
+  game = {
+    id: Date.now(),
+    startedAt: Date.now(),
+    roster: players.map(p=>({id:p.id, name:p.name})),
+    roles,
+    category: cat,
+    word,
+    active: new Set(players.map(p=>p.id)),
+    eliminated: [],
+    round: 1,
+    revealOrder: players.map(p=>p.id),
+    revealIndex: 0,
+    cardShown: false,
+    winner: null,
+    winnerReason: ''
+  };
+  selectedVoteId = null;
+  screen = 'reveal';
+  render();
+}
+let setupWarning = '';
+function flashSetupWarning(msg){ setupWarning = msg; render(); setTimeout(()=>{setupWarning='';render();}, 3500); }
+
+function revealNext(){
+  game.cardShown = false;
+  game.revealIndex++;
+  if(game.revealIndex >= game.revealOrder.length){
+    enterDiscuss();
+  }else{
+    render();
+  }
+}
+function enterDiscuss(){
+  screen = 'discuss';
+  stopTimer();
+  timerRemaining = settings.timerSeconds;
+  render();
+}
+let timerRemaining = 0;
+function startTimer(){
+  if(timerRunning) return;
+  timerRunning = true;
+  timerInterval = setInterval(()=>{
+    timerRemaining--;
+    updateTimerDom();
+    if(timerRemaining<=0){
+      stopTimer();
+      playBuzzer();
+    }
+  },1000);
+  render();
+}
+function pauseTimer(){ stopTimer(); render(); }
+function stopTimer(){ if(timerInterval) clearInterval(timerInterval); timerInterval=null; timerRunning=false; }
+function resetTimer(){ stopTimer(); timerRemaining = settings.timerSeconds; render(); }
+function adjustTimerNow(delta){ timerRemaining = Math.max(0, timerRemaining+delta); updateTimerDom(); }
+function updateTimerDom(){
+  const el = document.getElementById('timerText');
+  if(el){
+    el.textContent = fmtTime(timerRemaining);
+    el.classList.toggle('warn', timerRemaining<=10 && timerRemaining>0);
+  }
+}
+function goToVote(){
+  stopTimer();
+  selectedVoteId = null;
+  screen = 'vote';
+  render();
+}
+function selectVote(id){ selectedVoteId = id; render(); }
+function skipVote(){
+  selectedVoteId = null;
+  game.round++;
+  enterDiscuss();
+}
+function confirmVote(){
+  if(!selectedVoteId) return;
+  const id = selectedVoteId;
+  const role = game.roles[id];
+  const name = playerById(id)?.name || game.roster.find(r=>r.id===id)?.name || '?';
+  game.active.delete(id);
+  game.eliminated.push({id, name, role, round: game.round});
+
+  let activeSpies=0, activeVillagers=0;
+  game.active.forEach(pid=>{
+    const r = game.roles[pid];
+    if(r==='spy') activeSpies++;
+    else if(r==='villager') activeVillagers++;
+  });
+
+  if(role==='joker'){
+    game.winner='joker';
+    game.winnerReason = name+' (โจ๊กเกอร์) ถูกโหวตออก โจ๊กเกอร์ชนะทันที!';
+    endGame();
+  }else if(activeSpies===0){
+    game.winner='villager';
+    game.winnerReason = 'กำจัดสปายได้ครบทุกคนแล้ว ชาวบ้านชนะ!';
+    endGame();
+  }else if(activeVillagers<=activeSpies){
+    game.winner='spy';
+    game.winnerReason = 'จำนวนชาวบ้านเหลือเท่ากับหรือน้อยกว่าสปาย สปายชนะทันที!';
+    endGame();
+  }else{
+    game.round++;
+    selectedVoteId=null;
+    enterDiscuss();
+    return;
+  }
+  render();
+}
+async function endGame(){
+  screen='result';
+  const record = {
+    id: game.id,
+    date: Date.now(),
+    winner: game.winner,
+    winnerReason: game.winnerReason,
+    category: game.category,
+    word: game.word,
+    players: game.roster.map(p=>({
+      name:p.name,
+      role: game.roles[p.id],
+      eliminated: game.eliminated.find(e=>e.id===p.id) ? true : false,
+      round: (game.eliminated.find(e=>e.id===p.id)||{}).round || null
+    }))
+  };
+  history.unshift(record);
+  await storageSet('history', history);
+  render();
+}
+function playAgainSamePlayers(){ startGame(); }
+function abortToSetup(){
+  if(confirm('ยกเลิกเกมนี้และกลับไปหน้าตั้งค่า?')){
+    stopTimer();
+    game=null; screen='setup'; render();
+  }
+}
+async function clearHistory(){
+  if(confirm('ลบประวัติการเล่นทั้งหมด? ทำแล้วกู้คืนไม่ได้')){
+    history=[];
+    await storageDelete('history');
+    render();
+  }
+}
+
+/* ============ RENDER ============ */
+function render(){
+  const app = document.getElementById('app');
+  app.className = 'app-shell'+(screen==='vote'||screen==='setup'?' wide':'');
+  let html = '';
+  html += screen==='home' || screen==='rules' || screen==='history' ? topbarPlain() : '';
+  if(['reveal','discuss','vote','result'].includes(screen)) html += phaseTabs();
+  if(screen==='home') html += screenHome();
+  else if(screen==='rules') html += screenRules();
+  else if(screen==='setup') html += screenSetup();
+  else if(screen==='reveal') html += screenReveal();
+  else if(screen==='discuss') html += screenDiscuss();
+  else if(screen==='vote') html += screenVote();
+  else if(screen==='result') html += screenResult();
+  else if(screen==='history') html += screenHistory();
+  app.innerHTML = html;
+  if(screen==='discuss') updateTimerDom();
+}
+
+function topbarPlain(){
+  return `<div class="topbar">
+    <div class="brand">สปายจับผิด <span class="tag">ลับ · เกมห้องเรียน</span></div>
+    ${screen!=='home' ? `<button class="icon-btn" onclick="screen='home';render();">✕</button>` : `<button class="icon-btn" onclick="screen='rules';render();">?</button>`}
+  </div>`;
+}
+function phaseTabs(){
+  const steps = [
+    {k:'reveal', label:'เปิดโรล'},
+    {k:'discuss', label:'สนทนา'},
+    {k:'vote', label:'โหวต'},
+    {k:'result', label:'ผลลัพธ์'}
+  ];
+  const order = ['reveal','discuss','vote','result'];
+  const curIdx = order.indexOf(screen);
+  return `<div class="topbar">
+      <div class="brand">สปายจับผิด <span class="tag">รอบ ${game?game.round:1}</span></div>
+      <button class="icon-btn" onclick="abortToSetup()">✕</button>
+    </div>
+    <div class="phase-tabs">
+    ${steps.map((s,i)=>`<div class="tab ${i===curIdx?'active':(i<curIdx?'done':'')}">${s.label}</div>`).join('')}
+    </div>`;
+}
+
+function screenHome(){
+  const totalGames = history.length;
+  return `
+  <div class="card center">
+    <div class="eyebrow">TOP SECRET · ห้องเรียน</div>
+    <h1>สปายจับผิด</h1>
+    <p class="dim">เกมค้นหาสายลับสำหรับเล่นในห้องเรียน ใช้เครื่องเดียว ส่งต่อกันดูโรลลับทีละคน</p>
+    <div class="stack">
+      <button class="btn btn-primary" onclick="screen='setup';render();">🕵️ เริ่มเกมใหม่</button>
+      <button class="btn btn-secondary" onclick="screen='rules';render();">📖 วิธีเล่น / กติกา</button>
+      <button class="btn btn-secondary" onclick="screen='history';render();">🗂 ประวัติการเล่น ${totalGames?('('+totalGames+')'):''}</button>
+    </div>
+  </div>`;
+}
+
+function screenRules(){
+  return `
+  <div class="card rules-block">
+    <h2>📖 วิธีเล่น &amp; กติกา</h2>
+    <p class="dim">อ่านให้นักเรียนฟังก่อนเริ่มรอบแรก ใช้เวลาไม่ถึงนาที</p>
+    <div class="divider"></div>
+    <h3>ผู้เล่นและบทบาท</h3>
+    <ul>
+      <li><b>ชาวบ้าน</b> — รู้ "คำลับ" ที่สุ่มไว้ ต้องช่วยกันคุยเป็นนัย ๆ เพื่อหาว่าใครคือสปาย โดยไม่พูดคำลับตรง ๆ</li>
+      <li><b>สปาย</b> — ไม่รู้คำลับ รู้แค่ "หมวดหมู่" ต้องฟังบทสนทนาแล้วแกล้งพูดกลืนไปกับคนอื่น พร้อมพยายามเดาคำลับให้ออก</li>
+      <li><b>โจ๊กเกอร์</b> (ถ้าเปิดใช้งาน) — รู้คำลับเหมือนชาวบ้าน แต่เป้าหมายตรงข้าม คือทำตัวให้น่าสงสัยจนถูกโหวตออก</li>
+    </ul>
+    <h3>ลำดับการเล่น</h3>
+    <ul>
+      <li><b>1. เปิดโรล</b> — ส่งเครื่องให้ผู้เล่นทีละคน แตะดูโรลของตัวเองแบบลับ ๆ แล้วส่งต่อ</li>
+      <li><b>2. สนทนา</b> — ทุกคนพูดคุยเป็นนัยเกี่ยวกับคำลับ ภายในเวลาที่ตั้งไว้</li>
+      <li><b>3. โหวต</b> — เมื่อหมดเวลาหรือครูพร้อม ให้เพื่อน ๆ โหวต (พูดหรือยกมือในห้อง) แล้วครูกดเลือกคนที่โดนคัดออกในแอป</li>
+      <li><b>4. ตรวจผล</b> — แอปจะเช็กเงื่อนไขชนะทันที ถ้ายังไม่จบ วนกลับไปสนทนารอบถัดไปกับผู้เล่นที่เหลือ</li>
+    </ul>
+    <h3>เงื่อนไขการชนะ</h3>
+    <ul>
+      <li>🎭 <b>โจ๊กเกอร์ถูกโหวตออก</b> → โจ๊กเกอร์ชนะทันที (ไม่ว่าสถานการณ์อื่นจะเป็นอย่างไร)</li>
+      <li>🛡️ <b>กำจัดสปายได้หมดทุกคน</b> → ชาวบ้านชนะ</li>
+      <li>🕶️ <b>จำนวนชาวบ้านที่เหลือ ≤ จำนวนสปายที่เหลือ</b> → สปายชนะทันที</li>
+    </ul>
+    <p class="dim">หมายเหตุ: แต่ละรอบเปิดโรลจะมีคำลับ 1 คำ + หมวดหมู่ ชาวบ้านและโจ๊กเกอร์เห็นคำลับ ส่วนสปายเห็นแค่หมวดหมู่</p>
+    <div class="divider"></div>
+    <button class="btn btn-primary" onclick="screen='home';render();">เข้าใจแล้ว กลับหน้าแรก</button>
+  </div>`;
+}
+
+function screenSetup(){
+  const maxSpy = maxSpyAllowed();
+  return `
+  <div class="card">
+    <h2>👥 ผู้เล่น</h2>
+    <p class="dim">พิมพ์ชื่อแล้วกด + เพิ่มทีละคน (ต้องมีอย่างน้อย 3 คน)</p>
+    <div class="add-row">
+      <input id="newPlayerInput" class="input" placeholder="ชื่อผู้เล่น..." onkeydown="if(event.key==='Enter')addPlayer();">
+      <button onclick="addPlayer()">+</button>
+    </div>
+    ${players.length ? `<div class="player-list">
+      ${players.map((p,i)=>`<div class="player-chip"><span><span class="num">${String(i+1).padStart(2,'0')}</span>${escapeHtml(p.name)}</span><button class="del" onclick="removePlayer('${p.id}')">✕</button></div>`).join('')}
+    </div>` : `<div class="empty-note">ยังไม่มีผู้เล่น — เพิ่มชื่อด้านบนเลย</div>`}
+    ${setupWarning ? `<div class="warn-box">${setupWarning}</div>` : ''}
+  </div>
+
+  <div class="card">
+    <h2>⚙️ ตั้งค่าเกม</h2>
+    <div class="stepper-row">
+      <div><b>จำนวนสปาย</b><div class="dim">สูงสุดตอนนี้: ${maxSpy}</div></div>
+      <div class="stepper">
+        <button onclick="changeSpyCount(-1)">−</button>
+        <div class="val">${settings.spyCount}</div>
+        <button onclick="changeSpyCount(1)">+</button>
+      </div>
+    </div>
+    <div class="switch-row">
+      <div><b>เปิดใช้โจ๊กเกอร์</b><div class="dim">ชนะทันทีถ้าถูกโหวตออก</div></div>
+      <div class="switch ${settings.includeJoker?'on':''}" onclick="toggleJoker()"></div>
+    </div>
+    <div class="divider"></div>
+    <div class="stepper-row">
+      <div><b>เวลาสนทนาต่อรอบ</b></div>
+      <div class="stepper">
+        <button onclick="changeTimer(-30)">−</button>
+        <div class="val">${fmtTime(settings.timerSeconds)}</div>
+        <button onclick="changeTimer(30)">+</button>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <h3>หมวดหมู่คำลับ (หมวดสำเร็จรูป)</h3>
+    <div class="chip-grid">
+      ${CAT_NAMES.map(c=>`<div class="chip-toggle ${settings.categories.includes(c)?'on':''}" onclick="toggleCategory('${encodeURIComponent(c)}')">${c}</div>`).join('')}
+    </div>
+    ${Object.keys(customCategories).length ? `
+    <h3 style="margin-top:16px;">หมวดหมู่ของคุณเอง</h3>
+    <div class="chip-grid">
+      ${Object.entries(customCategories).map(([name,words])=>`
+        <div class="chip-toggle ${settings.categories.includes(name)?'on':''}" style="display:flex;align-items:center;gap:7px;" onclick="toggleCategory('${encodeURIComponent(name)}')">
+          <span>${escapeHtml(name)} <span class="dim" style="font-size:10.5px;">(${words.length})</span></span>
+          <span onclick="event.stopPropagation();deleteCustomCategory('${encodeURIComponent(name)}')" style="opacity:.7;">✕</span>
+        </div>`).join('')}
+    </div>` : ''}
+    <div class="divider"></div>
+    <h3>➕ เพิ่มหมวดหมู่ใหม่</h3>
+    <p class="dim">ตั้งชื่อหมวดหมู่ แล้วใส่คำในหมวดนั้น คั่นด้วยจุลภาค (,) อย่างน้อย 3 คำ</p>
+    <div class="stack">
+      <input id="customCatName" class="input" placeholder="ชื่อหมวดหมู่ เช่น ซีรีส์เกาหลี">
+      <input id="customCatWords" class="input" placeholder="คำที่ 1, คำที่ 2, คำที่ 3, ...">
+      <button class="btn btn-secondary" onclick="addCustomCategory()">➕ เพิ่มหมวดหมู่นี้</button>
+    </div>
+  </div>
+
+  <div class="stack">
+    <button class="btn btn-primary" onclick="startGame()">🕵️ เริ่มเกม / สุ่มโรล</button>
+    <button class="btn btn-secondary" onclick="screen='home';render();">กลับหน้าแรก</button>
+  </div>`;
+}
+
+function screenReveal(){
+  const pid = game.revealOrder[game.revealIndex];
+  const p = playerById(pid) || game.roster.find(r=>r.id===pid);
+  const role = game.roles[pid];
+
+  if(!game.cardShown){
+    return `<div class="card pass-screen">
+      <div class="eyebrow">ส่งเครื่องให้ผู้เล่นคนถัดไป</div>
+      <div class="name-big">${escapeHtml(p.name)}</div>
+      <p class="dim">คนอื่นห้ามมองจอ! เมื่อพร้อมแล้วให้แตะปุ่มด้านล่างเพื่อดูโรลลับของตัวเอง</p>
+      <button class="btn btn-primary" onclick="game.cardShown=true;render();">🔒 แตะเพื่อดูโรลลับ</button>
+      <p class="dim" style="margin-top:10px;">ผู้เล่นคนที่ ${game.revealIndex+1} / ${game.revealOrder.length}</p>
+    </div>`;
+  }
+
+  let stampClass='', stampLabel='', roleName='', body='';
+  if(role==='villager'){
+    stampClass='green'; stampLabel='VILLAGER'; roleName='ชาวบ้าน';
+    body = `<div class="cat-label">หมวดหมู่: ${game.category}</div>
+            <div class="word-big">${game.word}</div>
+            <div class="instr">จำคำนี้ให้ขึ้นใจแล้วเก็บเป็นความลับ! พูดเป็นนัย ๆ ให้เพื่อนที่รู้คำเดียวกันเข้าใจ แต่อย่าให้สปายจับทางได้ และช่วยกันหาว่าใครคือสปาย</div>`;
+  }else if(role==='spy'){
+    stampClass=''; stampLabel='SPY'; roleName='สปาย';
+    body = `<div class="cat-label">หมวดหมู่: ${game.category}</div>
+            <div class="word-big">?????</div>
+            <div class="instr">คุณไม่รู้คำลับ รู้แค่หมวดหมู่ด้านบน! ฟังเพื่อนคุยให้ดีแล้วแกล้งพูดกลืนไปกับคนอื่น พยายามเดาคำลับให้ออกโดยไม่ให้ใครจับได้ว่าคุณคือสปาย</div>`;
+  }else{
+    stampClass='gold'; stampLabel='JOKER'; roleName='โจ๊กเกอร์';
+    body = `<div class="cat-label">หมวดหมู่: ${game.category}</div>
+            <div class="word-big">${game.word}</div>
+            <div class="instr">คุณรู้คำลับเหมือนชาวบ้าน แต่เป้าหมายของคุณคือทำตัวให้น่าสงสัยจนถูกโหวตออกไปเอง ถ้าโดนโหวตออก คุณชนะทันที!</div>`;
+  }
+
+  return `<div class="paper-card">
+      <div class="stamp ${stampClass}"><span>${roleName}</span><small>${stampLabel}</small></div>
+      ${body}
+    </div>
+    <div class="stack">
+      <button class="btn btn-primary" onclick="revealNext()">✅ จำแล้ว ปิดและส่งต่อ</button>
+    </div>`;
+}
+
+function screenDiscuss(){
+  const activeNames = players.filter(p=>game.active.has(p.id)).map(p=>p.name);
+  return `<div class="card center">
+      <div class="eyebrow">รอบที่ ${game.round} · ช่วงสนทนา</div>
+      <div class="timer-display" id="timerText">${fmtTime(timerRemaining)}</div>
+      <div class="timer-sub">${timerRunning?'กำลังนับถอยหลัง...':'หยุดชั่วคราว'}</div>
+      <div class="btn-row">
+        ${timerRunning
+          ? `<button class="btn btn-secondary" onclick="pauseTimer()">⏸ หยุดชั่วคราว</button>`
+          : `<button class="btn btn-primary" onclick="startTimer()">▶️ เริ่มจับเวลา</button>`}
+        <button class="btn btn-ghost" onclick="resetTimer()">🔄 รีเซ็ต</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="adjustTimerNow(-30);render();">−30 วิ</button>
+        <button class="btn btn-ghost" onclick="adjustTimerNow(30);render();">+30 วิ</button>
+      </div>
+      <div class="divider"></div>
+      <h3>ผู้เล่นที่ยังอยู่ในเกม (${activeNames.length})</h3>
+      <div class="active-players">${activeNames.map(n=>`<span>${escapeHtml(n)}</span>`).join('')}</div>
+    </div>
+    <div class="stack">
+      <button class="btn btn-danger" onclick="goToVote()">🗳 ไปหน้าโหวต</button>
+    </div>`;
+}
+
+function screenVote(){
+  const activeIds = players.filter(p=>game.active.has(p.id));
+  return `<div class="card">
+      <h2>🗳 โหวตคัดออก</h2>
+      <p class="dim">ให้ผู้เล่นในห้องโหวตกันด้วยวาจา/ยกมือ แล้วครูแตะเลือกคนที่ถูกคัดออกมากที่สุด หรือถ้ายังไม่มั่นใจ กด "ไม่คัดใครออก" เพื่อคุยกันต่อได้</p>
+      <div class="vote-grid">
+        ${activeIds.map(p=>`<div class="vote-card ${selectedVoteId===p.id?'selected':''}" onclick="selectVote('${p.id}')">${escapeHtml(p.name)}</div>`).join('')}
+      </div>
+    </div>
+    <div class="stack">
+      <button class="btn btn-danger" ${selectedVoteId?'':'disabled'} onclick="confirmVote()">
+        ${selectedVoteId ? '⚖️ ยืนยันคัดออก: '+escapeHtml(playerById(selectedVoteId).name) : 'เลือกผู้เล่นก่อน'}
+      </button>
+      <button class="btn btn-ghost" onclick="skipVote()">🙅 ยังไม่มั่นใจ ไม่คัดใครออกรอบนี้</button>
+    </div>`;
+}
+
+function screenResult(){
+  const bannerText = {villager:'🛡️ ชาวบ้านชนะ!', spy:'🕶️ สปายชนะ!', joker:'🎭 โจ๊กเกอร์ชนะ!'}[game.winner];
+  return `<div class="card result-banner ${game.winner}">
+      <div class="eyebrow">จบเกม</div>
+      <div class="headline">${bannerText}</div>
+      <p class="dim">${game.winnerReason}</p>
+      <p class="dim">คำลับคือ "<b>${game.word}</b>" (หมวดหมู่: ${game.category})</p>
+    </div>
+    <div class="card">
+      <h3>สรุปบทบาททั้งหมด</h3>
+      <table class="role-table">
+        <tr><th>ผู้เล่น</th><th>บทบาท</th><th>สถานะ</th></tr>
+        ${game.roster.map(p=>{
+          const role = game.roles[p.id];
+          const elim = game.eliminated.find(e=>e.id===p.id);
+          const badgeMap = {villager:'ชาวบ้าน',spy:'สปาย',joker:'โจ๊กเกอร์'};
+          return `<tr>
+            <td>${escapeHtml(p.name)}</td>
+            <td><span class="role-badge ${role}">${badgeMap[role]}</span></td>
+            <td>${elim ? `<span class="status-out">ออกรอบ ${elim.round}</span>` : 'รอดถึงจบเกม'}</td>
+          </tr>`;
+        }).join('')}
+      </table>
+    </div>
+    <div class="stack">
+      <button class="btn btn-primary" onclick="playAgainSamePlayers()">🔁 เล่นรอบใหม่ (ผู้เล่นเดิม สุ่มโรลใหม่)</button>
+      <button class="btn btn-secondary" onclick="screen='setup';render();">✏️ แก้ไขผู้เล่น/ตั้งค่า</button>
+      <button class="btn btn-secondary" onclick="screen='history';render();">🗂 ดูประวัติการเล่น</button>
+      <button class="btn btn-ghost" onclick="screen='home';render();">หน้าแรก</button>
+    </div>`;
+}
+
+function screenHistory(){
+  const badgeText = {villager:'ชาวบ้านชนะ', spy:'สปายชนะ', joker:'โจ๊กเกอร์ชนะ'};
+  // aggregate stats by player name
+  const stats = {};
+  history.forEach(g=>{
+    g.players.forEach(p=>{
+      if(!stats[p.name]) stats[p.name] = {played:0, spy:0, joker:0, villager:0, wins:0};
+      stats[p.name].played++;
+      stats[p.name][p.role]++;
+      if(p.role===g.winner) stats[p.name].wins++;
+    });
+  });
+  const statRows = Object.entries(stats).sort((a,b)=>b[1].played-a[1].played);
+
+  return `<div class="card">
+    <h2>🗂 ประวัติการเล่น</h2>
+    ${history.length===0 ? `<div class="empty-note">ยังไม่มีประวัติเกม เล่นรอบแรกกันเลย!</div>` : `
+    ${history.slice(0,25).map(g=>`
+      <div class="history-item">
+        <div class="top-row">
+          <b>${badgeText[g.winner]}</b>
+          <span class="date">${fmtDate(g.date)}</span>
+        </div>
+        <div class="dim">คำลับ: ${g.word} (${g.category}) · ผู้เล่น ${g.players.length} คน</div>
+      </div>`).join('')}
+    `}
+  </div>
+  ${statRows.length ? `<div class="card">
+    <h3>สถิติผู้เล่น</h3>
+    <table class="stats-table">
+      <tr><th>ชื่อ</th><th>เล่น</th><th>เป็นสปาย</th><th>เป็นโจ๊กเกอร์</th><th>ชนะ</th></tr>
+      ${statRows.map(([name,s])=>`<tr><td>${escapeHtml(name)}</td><td>${s.played}</td><td>${s.spy}</td><td>${s.joker}</td><td>${s.wins}</td></tr>`).join('')}
+    </table>
+  </div>` : ''}
+  <div class="stack">
+    ${history.length ? `<button class="btn btn-ghost" onclick="clearHistory()">🗑 ล้างประวัติทั้งหมด</button>` : ''}
+    <button class="btn btn-secondary" onclick="screen='home';render();">กลับหน้าแรก</button>
+  </div>`;
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+init();
+</script>
+</body>
+</html>
