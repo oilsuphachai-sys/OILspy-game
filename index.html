@@ -19,6 +19,8 @@
     --gold-ink:#1A1500;
     --red:#A33B32;
     --green:#4F7C58;
+    --blue:#3E6E96;
+    --purple:#7C5FA0;
     --ink:#E8E3D6;
     --ink-dim:#8FA0A6;
     --ink-paper:#2B2620;
@@ -118,6 +120,8 @@
   .stamp{width:140px;height:140px;border:5px solid var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;color:var(--red);font-family:var(--font-display);font-weight:800;transform:rotate(-10deg);margin:14px auto 6px;text-align:center;animation:stamp-in .4s cubic-bezier(.2,1.5,.4,1) both;}
   .stamp.gold{border-color:var(--gold);color:var(--gold);}
   .stamp.green{border-color:var(--green);color:var(--green);}
+  .stamp.blue{border-color:var(--blue);color:var(--blue);}
+  .stamp.purple{border-color:var(--purple);color:var(--purple);}
   .stamp span{font-size:17px;line-height:1.15;}
   .stamp small{font-family:var(--font-mono);font-size:9px;font-weight:500;letter-spacing:1.5px;margin-top:4px;}
   @keyframes stamp-in{0%{transform:rotate(-10deg) scale(2.2);opacity:0;}55%{transform:rotate(-10deg) scale(.9);opacity:1;}100%{transform:rotate(-10deg) scale(1);opacity:1;}}
@@ -148,6 +152,8 @@
   .role-badge.spy{background:var(--red);color:#fff;}
   .role-badge.villager{background:var(--green);color:#fff;}
   .role-badge.joker{background:var(--gold);color:var(--gold-ink);}
+  .role-badge.fbi{background:var(--blue);color:#fff;}
+  .role-badge.seer{background:var(--purple);color:#fff;}
   .status-out{color:var(--ink-dim);font-size:11px;}
 
   .history-item{background:var(--panel-alt);border-radius:10px;padding:12px 14px;margin-bottom:9px;border:1px solid var(--panel-line);}
@@ -215,7 +221,7 @@ async function storageDelete(key){
 
 /* ============ STATE ============ */
 let players = [];        // {id, name}
-let settings = { spyCount:1, includeJoker:false, timerSeconds:180, categories:[...CAT_NAMES] };
+let settings = { spyCount:1, includeJoker:false, includeFBI:false, includeSeer:false, timerSeconds:180, categories:[...CAT_NAMES] };
 let history = [];        // past game records
 let customCategories = {}; // {name: [word, word, ...]}
 let game = null;         // active game state
@@ -223,6 +229,15 @@ let screen = 'home';
 let timerInterval = null;
 let timerRunning = false;
 let selectedVoteId = null;
+let fbiRevealInfo = null;
+let skillActorId = null;
+let skillTargetId = null;
+let skillPhase = 'pick'; // pick -> pass -> act
+let skillReturnScreen = 'discuss';
+
+const ROLE_LABELS = {villager:'ชาวบ้าน', spy:'สปาย', joker:'โจ๊กเกอร์', fbi:'FBI', seer:'ผู้หยั่งรู้'};
+function roleStampClass(role){ return {villager:'green', spy:'', joker:'gold', fbi:'blue', seer:'purple'}[role] || ''; }
+function roleTeam(role){ return role==='spy' ? 'spy' : (role==='joker' ? 'joker' : 'villager'); }
 
 function uid(){ return 'p'+Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
 
@@ -287,8 +302,11 @@ async function removePlayer(id){
   render();
 }
 async function updateSettings(){ await storageSet('settings', settings); }
+function specialRoleCount(){
+  return (settings.includeJoker?1:0) + (settings.includeFBI?1:0) + (settings.includeSeer?1:0);
+}
 function maxSpyAllowed(){
-  return Math.max(1, players.length - (settings.includeJoker?1:0) - 1);
+  return Math.max(1, players.length - specialRoleCount() - 1);
 }
 function changeSpyCount(delta){
   settings.spyCount = Math.min(maxSpyAllowed(), Math.max(1, settings.spyCount+delta));
@@ -296,6 +314,16 @@ function changeSpyCount(delta){
 }
 function toggleJoker(){
   settings.includeJoker = !settings.includeJoker;
+  settings.spyCount = Math.min(settings.spyCount, maxSpyAllowed());
+  updateSettings(); render();
+}
+function toggleFBI(){
+  settings.includeFBI = !settings.includeFBI;
+  settings.spyCount = Math.min(settings.spyCount, maxSpyAllowed());
+  updateSettings(); render();
+}
+function toggleSeer(){
+  settings.includeSeer = !settings.includeSeer;
   settings.spyCount = Math.min(settings.spyCount, maxSpyAllowed());
   updateSettings(); render();
 }
@@ -344,12 +372,18 @@ function buildRoles(){
   let i=0;
   for(let k=0;k<settings.spyCount;k++){ roles[order[i]]='spy'; i++; }
   if(settings.includeJoker){ roles[order[i]]='joker'; i++; }
+  if(settings.includeFBI){ roles[order[i]]='fbi'; i++; }
+  if(settings.includeSeer){ roles[order[i]]='seer'; i++; }
   for(;i<order.length;i++){ roles[order[i]]='villager'; }
   return roles;
 }
 function startGame(){
   if(players.length<3){ flashSetupWarning('ต้องมีผู้เล่นอย่างน้อย 3 คนถึงจะเริ่มเกมได้'); return; }
   settings.spyCount = Math.min(settings.spyCount, maxSpyAllowed());
+  if(settings.spyCount + specialRoleCount() + 1 > players.length){
+    flashSetupWarning('จำนวนผู้เล่นไม่พอสำหรับบทบาทที่เลือกไว้ทั้งหมด กรุณาเพิ่มผู้เล่น หรือลดจำนวนสปาย/ปิดบทบาทพิเศษบางอัน');
+    return;
+  }
   const roles = buildRoles();
   const catPool = allCategories();
   const validSelected = settings.categories.filter(c=>catPool[c]);
@@ -366,6 +400,7 @@ function startGame(){
     word,
     active: new Set(players.map(p=>p.id)),
     eliminated: [],
+    skillsUsed: new Set(),
     round: 1,
     revealOrder: players.map(p=>p.id),
     revealIndex: 0,
@@ -444,7 +479,7 @@ function confirmVote(){
   game.active.forEach(pid=>{
     const r = game.roles[pid];
     if(r==='spy') activeSpies++;
-    else if(r==='villager') activeVillagers++;
+    else if(r==='villager' || r==='fbi' || r==='seer') activeVillagers++;
   });
 
   if(role==='joker'){
@@ -467,6 +502,80 @@ function confirmVote(){
   }
   render();
 }
+function spyGuessedCorrectly(){
+  if(!confirm('ยืนยันว่าสปายทายคำลับได้ถูกต้อง? สปายจะชนะทันที')) return;
+  stopTimer();
+  game.winner='spy';
+  game.winnerReason='สปายทายคำลับได้ถูกต้อง สปายชนะทันที!';
+  endGame();
+}
+
+/* ============ SKILLS (FBI / SEER) ============ */
+function eligibleSkillActors(){
+  return players.filter(p => game.active.has(p.id) && ['fbi','seer'].includes(game.roles[p.id]) && !game.skillsUsed.has(p.id));
+}
+function openSkillMenu(){
+  skillReturnScreen = screen;
+  skillActorId = null; skillTargetId = null; skillPhase = 'pick';
+  screen = 'skill';
+  render();
+}
+function closeSkillMenu(){
+  skillActorId = null; skillTargetId = null; skillPhase = 'pick';
+  screen = skillReturnScreen;
+  render();
+}
+function pickSkillActor(id){ skillActorId = id; skillPhase = 'pass'; render(); }
+function beginSkillAction(){ skillPhase = 'act'; render(); }
+function pickSkillTarget(id){ skillTargetId = id; render(); }
+function finishSkillUse(){
+  game.skillsUsed.add(skillActorId);
+  skillActorId = null; skillTargetId = null; skillPhase = 'pick';
+  screen = skillReturnScreen;
+  render();
+}
+function executeFbiSkill(){
+  const actorId = skillActorId;
+  const id = skillTargetId;
+  const role = game.roles[id];
+  const name = playerById(id).name;
+  game.active.delete(id);
+  game.eliminated.push({id, name, role, round: game.round, by:'fbi'});
+  game.skillsUsed.add(actorId);
+
+  let activeSpies=0, activeVillagers=0;
+  game.active.forEach(pid=>{
+    const r = game.roles[pid];
+    if(r==='spy') activeSpies++;
+    else if(r==='villager' || r==='fbi' || r==='seer') activeVillagers++;
+  });
+
+  // Note: FBI kills never trigger the joker's own instant-win-on-elimination rule.
+  if(activeSpies===0){
+    game.winner='villager';
+    game.winnerReason = 'FBI คัดออก '+name+' และกำจัดสปายได้ครบทุกคน ชาวบ้านชนะ!';
+  }else if(activeVillagers<=activeSpies){
+    game.winner='spy';
+    game.winnerReason = 'FBI คัดออก '+name+' ทำให้จำนวนชาวบ้านเหลือเท่ากับหรือน้อยกว่าสปาย สปายชนะทันที!';
+  }else{
+    game.winner=null;
+  }
+  fbiRevealInfo = {name, role};
+  skillActorId = null; skillTargetId = null; skillPhase = 'pick';
+  screen = 'fbiReveal';
+  render();
+}
+function proceedAfterFbiReveal(){
+  fbiRevealInfo = null;
+  if(game.winner){
+    endGame();
+  }else{
+    game.round++;
+    enterDiscuss();
+  }
+}
+
+
 async function endGame(){
   screen='result';
   const record = {
@@ -547,7 +656,7 @@ function render(){
   app.className = 'app-shell'+(screen==='vote'||screen==='setup'?' wide':'');
   let html = '';
   html += screen==='home' || screen==='rules' || screen==='history' ? topbarPlain() : '';
-  if(['reveal','discuss','vote','result'].includes(screen)) html += phaseTabs();
+  if(['reveal','discuss','vote','result','skill','fbiReveal'].includes(screen)) html += phaseTabs();
   if(screen==='home') html += screenHome();
   else if(screen==='rules') html += screenRules();
   else if(screen==='setup') html += screenSetup();
@@ -556,6 +665,8 @@ function render(){
   else if(screen==='vote') html += screenVote();
   else if(screen==='result') html += screenResult();
   else if(screen==='history') html += screenHistory();
+  else if(screen==='skill') html += screenSkill();
+  else if(screen==='fbiReveal') html += screenFbiReveal();
   app.innerHTML = html;
   if(screen==='discuss') updateTimerDom();
 }
@@ -574,7 +685,8 @@ function phaseTabs(){
     {k:'result', label:'ผลลัพธ์'}
   ];
   const order = ['reveal','discuss','vote','result'];
-  const curIdx = order.indexOf(screen);
+  const mapped = (screen==='skill'||screen==='fbiReveal') ? 'discuss' : screen;
+  const curIdx = order.indexOf(mapped);
   return `<div class="topbar">
       <div class="brand">สปายจับผิด <span class="tag">รอบ ${game?game.round:1}</span></div>
       <button class="icon-btn" onclick="abortToSetup()">✕</button>
@@ -617,22 +729,25 @@ function screenRules(){
     <ul>
       <li><b>ชาวบ้าน</b> — รู้ "คำลับ" ที่สุ่มไว้ ต้องช่วยกันคุยเป็นนัย ๆ เพื่อหาว่าใครคือสปาย โดยไม่พูดคำลับตรง ๆ</li>
       <li><b>สปาย</b> — ไม่รู้คำลับ รู้แค่ "หมวดหมู่" ต้องฟังบทสนทนาแล้วแกล้งพูดกลืนไปกับคนอื่น พร้อมพยายามเดาคำลับให้ออก</li>
-      <li><b>โจ๊กเกอร์</b> (ถ้าเปิดใช้งาน) — รู้คำลับเหมือนชาวบ้าน แต่เป้าหมายตรงข้าม คือทำตัวให้น่าสงสัยจนถูกโหวตออก</li>
+      <li><b>โจ๊กเกอร์</b> (ถ้าเปิดใช้งาน) — รู้คำลับเหมือนชาวบ้าน แต่เป้าหมายตรงข้าม คือทำตัวให้น่าสงสัยจนถูกโหวตออกด้วยการโหวตปกติ</li>
+      <li><b>FBI</b> (ถ้าเปิดใช้งาน) — รู้คำลับเหมือนชาวบ้าน มีอำนาจพิเศษคัดผู้เล่นคนใดออกทันที 1 ครั้งตลอดเกม (กดปุ่ม "ใช้สกิล") เลือกโจ๊กเกอร์ได้โดยไม่ทำให้ทีมแพ้ และจะเปิดเผยบทบาทของคนที่ถูกคัดออกทันที</li>
+      <li><b>ผู้หยั่งรู้</b> (ถ้าเปิดใช้งาน) — รู้คำลับเหมือนชาวบ้าน มีอำนาจพิเศษแอบดูบทบาทผู้เล่น 1 คนได้ 1 ครั้งตลอดเกม (กดปุ่ม "ใช้สกิล")</li>
     </ul>
     <h3>ลำดับการเล่น</h3>
     <ul>
       <li><b>1. เปิดโรล</b> — ส่งเครื่องให้ผู้เล่นทีละคน แตะดูโรลของตัวเองแบบลับ ๆ แล้วส่งต่อ</li>
-      <li><b>2. สนทนา</b> — ทุกคนพูดคุยเป็นนัยเกี่ยวกับคำลับ ภายในเวลาที่ตั้งไว้</li>
-      <li><b>3. โหวต</b> — เมื่อหมดเวลาหรือครูพร้อม ให้เพื่อน ๆ โหวต (พูดหรือยกมือในห้อง) แล้วครูกดเลือกคนที่โดนคัดออกในแอป</li>
+      <li><b>2. สนทนา</b> — ทุกคนพูดคุยเป็นนัยเกี่ยวกับคำลับ ภายในเวลาที่ตั้งไว้ ใครมีสกิลจะขอครูใช้สกิลตอนนี้ได้</li>
+      <li><b>3. โหวต</b> — เมื่อหมดเวลาหรือครูพร้อม ให้เพื่อน ๆ โหวต (พูดหรือยกมือในห้อง) แล้วครูกดเลือกคนที่โดนคัดออกในแอป หรือกด "ไม่คัดใครออก" ถ้ายังไม่มั่นใจ</li>
       <li><b>4. ตรวจผล</b> — แอปจะเช็กเงื่อนไขชนะทันที ถ้ายังไม่จบ วนกลับไปสนทนารอบถัดไปกับผู้เล่นที่เหลือ</li>
     </ul>
     <h3>เงื่อนไขการชนะ</h3>
     <ul>
-      <li>🎭 <b>โจ๊กเกอร์ถูกโหวตออก</b> → โจ๊กเกอร์ชนะทันที (ไม่ว่าสถานการณ์อื่นจะเป็นอย่างไร)</li>
-      <li>🛡️ <b>กำจัดสปายได้หมดทุกคน</b> → ชาวบ้านชนะ</li>
-      <li>🕶️ <b>จำนวนชาวบ้านที่เหลือ ≤ จำนวนสปายที่เหลือ</b> → สปายชนะทันที</li>
+      <li>🎭 <b>โจ๊กเกอร์ถูกโหวตออกด้วยการโหวตปกติ</b> → โจ๊กเกอร์ชนะทันที (การคัดออกโดย FBI ไม่นับข้อนี้)</li>
+      <li>🛡️ <b>กำจัดสปายได้หมดทุกคน</b> → ฝั่งหมู่บ้าน (ชาวบ้าน + FBI + ผู้หยั่งรู้) ชนะ</li>
+      <li>🕶️ <b>จำนวนฝั่งหมู่บ้านที่เหลือ ≤ จำนวนสปายที่เหลือ</b> → สปายชนะทันที</li>
+      <li>🗝️ <b>สปายทายคำลับได้ถูกต้อง</b> — ครูกดปุ่ม "สปายทายถูก" เพื่อให้สปายชนะทันที (ใช้เมื่อสปายพูดคำลับถูกต้องต่อหน้าทุกคน)</li>
     </ul>
-    <p class="dim">หมายเหตุ: แต่ละรอบเปิดโรลจะมีคำลับ 1 คำ + หมวดหมู่ ชาวบ้านและโจ๊กเกอร์เห็นคำลับ ส่วนสปายเห็นแค่หมวดหมู่</p>
+    <p class="dim">หมายเหตุ: แต่ละรอบเปิดโรลจะมีคำลับ 1 คำ + หมวดหมู่ ทุกบทบาทเห็นคำลับยกเว้นสปาย สปายเห็นแค่หมวดหมู่</p>
     <div class="divider"></div>
     <button class="btn btn-primary" onclick="screen='home';render();">เข้าใจแล้ว กลับหน้าแรก</button>
   </div>`;
@@ -669,8 +784,16 @@ function screenSetup(){
       </div>
     </div>
     <div class="switch-row">
-      <div><b>เปิดใช้โจ๊กเกอร์</b><div class="dim">ชนะทันทีถ้าถูกโหวตออก</div></div>
+      <div><b>เปิดใช้โจ๊กเกอร์</b><div class="dim">ชนะทันทีถ้าถูกโหวตออกแบบปกติ</div></div>
       <div class="switch ${settings.includeJoker?'on':''}" onclick="toggleJoker()"></div>
+    </div>
+    <div class="switch-row">
+      <div><b>เปิดใช้ FBI</b><div class="dim">คัดผู้เล่นออกได้ทันที 1 ครั้ง/เกม (เลือกโจ๊กเกอร์ได้โดยไม่แพ้)</div></div>
+      <div class="switch ${settings.includeFBI?'on':''}" onclick="toggleFBI()"></div>
+    </div>
+    <div class="switch-row">
+      <div><b>เปิดใช้ผู้หยั่งรู้</b><div class="dim">แอบดูบทบาทผู้เล่น 1 คนได้ 1 ครั้ง/เกม</div></div>
+      <div class="switch ${settings.includeSeer?'on':''}" onclick="toggleSeer()"></div>
     </div>
     <div class="divider"></div>
     <div class="stepper-row">
@@ -726,22 +849,30 @@ function screenReveal(){
     </div>`;
   }
 
-  let stampClass='', stampLabel='', roleName='', body='';
+  let body='';
+  const stampClass = roleStampClass(role);
+  const stampLabel = role.toUpperCase();
+  const roleName = ROLE_LABELS[role];
   if(role==='villager'){
-    stampClass='green'; stampLabel='VILLAGER'; roleName='ชาวบ้าน';
     body = `<div class="cat-label">หมวดหมู่: ${game.category}</div>
             <div class="word-big">${game.word}</div>
             <div class="instr">จำคำนี้ให้ขึ้นใจแล้วเก็บเป็นความลับ! พูดเป็นนัย ๆ ให้เพื่อนที่รู้คำเดียวกันเข้าใจ แต่อย่าให้สปายจับทางได้ และช่วยกันหาว่าใครคือสปาย</div>`;
   }else if(role==='spy'){
-    stampClass=''; stampLabel='SPY'; roleName='สปาย';
     body = `<div class="cat-label">หมวดหมู่: ${game.category}</div>
             <div class="word-big">?????</div>
             <div class="instr">คุณไม่รู้คำลับ รู้แค่หมวดหมู่ด้านบน! ฟังเพื่อนคุยให้ดีแล้วแกล้งพูดกลืนไปกับคนอื่น พยายามเดาคำลับให้ออกโดยไม่ให้ใครจับได้ว่าคุณคือสปาย</div>`;
-  }else{
-    stampClass='gold'; stampLabel='JOKER'; roleName='โจ๊กเกอร์';
+  }else if(role==='joker'){
     body = `<div class="cat-label">หมวดหมู่: ${game.category}</div>
             <div class="word-big">${game.word}</div>
-            <div class="instr">คุณรู้คำลับเหมือนชาวบ้าน แต่เป้าหมายของคุณคือทำตัวให้น่าสงสัยจนถูกโหวตออกไปเอง ถ้าโดนโหวตออก คุณชนะทันที!</div>`;
+            <div class="instr">คุณรู้คำลับเหมือนชาวบ้าน แต่เป้าหมายของคุณคือทำตัวให้น่าสงสัยจนถูกโหวตออกไปเอง ถ้าโดนโหวตออกด้วยการโหวตปกติ คุณชนะทันที!</div>`;
+  }else if(role==='fbi'){
+    body = `<div class="cat-label">หมวดหมู่: ${game.category}</div>
+            <div class="word-big">${game.word}</div>
+            <div class="instr">คุณรู้คำลับเหมือนชาวบ้าน และมีอำนาจพิเศษ: คัดผู้เล่นคนใดก็ได้ออกจากเกมทันที 1 ครั้งตลอดเกม (จะเลือกโจ๊กเกอร์ก็ได้โดยไม่ทำให้ทีมคุณแพ้) กดปุ่ม "ใช้สกิล" ตอนไหนก็ได้ระหว่างช่วงสนทนาหรือโหวต</div>`;
+  }else if(role==='seer'){
+    body = `<div class="cat-label">หมวดหมู่: ${game.category}</div>
+            <div class="word-big">${game.word}</div>
+            <div class="instr">คุณรู้คำลับเหมือนชาวบ้าน และมีอำนาจพิเศษ: แอบดูบทบาทของผู้เล่นคนใดคนหนึ่งได้ 1 ครั้งตลอดเกม กดปุ่ม "ใช้สกิล" ตอนไหนก็ได้ระหว่างช่วงสนทนาหรือโหวต</div>`;
   }
 
   return `<div class="paper-card">
@@ -773,6 +904,10 @@ function screenDiscuss(){
       <h3>ผู้เล่นที่ยังอยู่ในเกม (${activeNames.length})</h3>
       <div class="active-players">${activeNames.map(n=>`<span>${escapeHtml(n)}</span>`).join('')}</div>
     </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="openSkillMenu()">🎯 ใช้สกิล</button>
+      <button class="btn btn-ghost" onclick="spyGuessedCorrectly()">🗝️ สปายทายถูก</button>
+    </div>
     <div class="stack">
       <button class="btn btn-danger" onclick="goToVote()">🗳 ไปหน้าโหวต</button>
     </div>`;
@@ -792,8 +927,92 @@ function screenVote(){
         ${selectedVoteId ? '⚖️ ยืนยันคัดออก: '+escapeHtml(playerById(selectedVoteId).name) : 'เลือกผู้เล่นก่อน'}
       </button>
       <button class="btn btn-ghost" onclick="skipVote()">🙅 ยังไม่มั่นใจ ไม่คัดใครออกรอบนี้</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" onclick="openSkillMenu()">🎯 ใช้สกิล</button>
+      <button class="btn btn-ghost" onclick="spyGuessedCorrectly()">🗝️ สปายทายถูก</button>
     </div>`;
 }
+
+function screenSkill(){
+  if(!skillActorId){
+    const eligible = eligibleSkillActors();
+    return `<div class="card">
+      <h2>🎯 ใช้สกิล</h2>
+      <p class="dim">ผู้เล่นที่มีสกิลและยังไม่เคยใช้ ให้บอกชื่อกับครูเบา ๆ แล้วครูแตะเลือกชื่อนั้น (รายชื่อนี้ไม่บอกใบ้บทบาท)</p>
+      ${eligible.length ? `<div class="vote-grid">
+        ${eligible.map(p=>`<div class="vote-card" onclick="pickSkillActor('${p.id}')">${escapeHtml(p.name)}</div>`).join('')}
+      </div>` : `<div class="empty-note">ไม่มีผู้เล่นที่ใช้สกิลได้ตอนนี้ (ยังไม่เปิดบทบาทมีสกิล หรือใช้ไปหมดแล้ว)</div>`}
+    </div>
+    <div class="stack"><button class="btn btn-secondary" onclick="closeSkillMenu()">← กลับ</button></div>`;
+  }
+
+  const actor = playerById(skillActorId);
+  const role = game.roles[skillActorId];
+
+  if(skillPhase==='pass'){
+    return `<div class="card pass-screen">
+      <div class="eyebrow">ส่งเครื่องให้</div>
+      <div class="name-big">${escapeHtml(actor.name)}</div>
+      <p class="dim">คนอื่นห้ามมองจอ! เมื่อพร้อมแล้วแตะเพื่อใช้สกิลลับของคุณ</p>
+      <button class="btn btn-primary" onclick="beginSkillAction()">🔓 แตะเพื่อใช้สกิล</button>
+    </div>
+    <div class="stack"><button class="btn btn-ghost" onclick="closeSkillMenu()">ยกเลิก</button></div>`;
+  }
+
+  // skillPhase === 'act'
+  const targets = players.filter(p=>game.active.has(p.id) && p.id!==skillActorId);
+
+  if(role==='seer'){
+    if(skillTargetId){
+      const tRole = game.roles[skillTargetId];
+      const tName = playerById(skillTargetId).name;
+      return `<div class="paper-card">
+          <div class="cat-label">ผลการหยั่งรู้</div>
+          <div class="stamp ${roleStampClass(tRole)}"><span>${escapeHtml(tName)}</span><small>${tRole.toUpperCase()}</small></div>
+          <div class="instr">${escapeHtml(tName)} คือ <b>${ROLE_LABELS[tRole]}</b> — จำไว้ให้ดี แล้วอย่าบอกใคร!</div>
+        </div>
+        <div class="stack"><button class="btn btn-primary" onclick="finishSkillUse()">✅ จำแล้ว ปิดและส่งต่อ</button></div>`;
+    }
+    return `<div class="card">
+      <h2>🔮 ผู้หยั่งรู้</h2>
+      <p class="dim">เลือกผู้เล่นที่ต้องการดูบทบาท (ใช้ได้ครั้งเดียวตลอดเกม)</p>
+      <div class="vote-grid">${targets.map(p=>`<div class="vote-card" onclick="pickSkillTarget('${p.id}')">${escapeHtml(p.name)}</div>`).join('')}</div>
+    </div>`;
+  }
+
+  if(role==='fbi'){
+    if(skillTargetId){
+      const tName = playerById(skillTargetId).name;
+      return `<div class="card center">
+        <h2>🎖️ อำนาจ FBI</h2>
+        <p>ยืนยันคัดออก <b>${escapeHtml(tName)}</b> ทันทีด้วยอำนาจพิเศษ?</p>
+        <p class="dim">ใช้ได้ครั้งเดียวตลอดเกม และจะเปิดเผยบทบาทของคนที่ถูกคัดออกให้ทุกคนเห็นทันที</p>
+        <div class="btn-row">
+          <button class="btn btn-secondary" onclick="skillTargetId=null;render();">เลือกใหม่</button>
+          <button class="btn btn-danger" onclick="executeFbiSkill()">ยืนยันคัดออก</button>
+        </div>
+      </div>`;
+    }
+    return `<div class="card">
+      <h2>🎖️ FBI</h2>
+      <p class="dim">เลือกผู้เล่นที่จะคัดออกทันที (ใช้ได้ครั้งเดียวตลอดเกม เลือกโจ๊กเกอร์ได้โดยไม่ทำให้ทีมแพ้)</p>
+      <div class="vote-grid">${targets.map(p=>`<div class="vote-card" onclick="pickSkillTarget('${p.id}')">${escapeHtml(p.name)}</div>`).join('')}</div>
+    </div>`;
+  }
+  return '';
+}
+
+function screenFbiReveal(){
+  const badgeMap = ROLE_LABELS;
+  return `<div class="paper-card">
+      <div class="cat-label">FBI ใช้อำนาจพิเศษ</div>
+      <div class="stamp ${roleStampClass(fbiRevealInfo.role)}"><span>${escapeHtml(fbiRevealInfo.name)}</span><small>${fbiRevealInfo.role.toUpperCase()}</small></div>
+      <div class="instr">${escapeHtml(fbiRevealInfo.name)} ถูกคัดออกทันที และเปิดเผยว่าคือ <b>${badgeMap[fbiRevealInfo.role]}</b></div>
+    </div>
+    <div class="stack"><button class="btn btn-primary" onclick="proceedAfterFbiReveal()">✅ รับทราบ ไปต่อ</button></div>`;
+}
+
 
 function screenResult(){
   const bannerText = {villager:'🛡️ ชาวบ้านชนะ!', spy:'🕶️ สปายชนะ!', joker:'🎭 โจ๊กเกอร์ชนะ!'}[game.winner];
@@ -810,11 +1029,10 @@ function screenResult(){
         ${game.roster.map(p=>{
           const role = game.roles[p.id];
           const elim = game.eliminated.find(e=>e.id===p.id);
-          const badgeMap = {villager:'ชาวบ้าน',spy:'สปาย',joker:'โจ๊กเกอร์'};
           return `<tr>
             <td>${escapeHtml(p.name)}</td>
-            <td><span class="role-badge ${role}">${badgeMap[role]}</span></td>
-            <td>${elim ? `<span class="status-out">ออกรอบ ${elim.round}</span>` : 'รอดถึงจบเกม'}</td>
+            <td><span class="role-badge ${role}">${ROLE_LABELS[role]}</span></td>
+            <td>${elim ? `<span class="status-out">ออกรอบ ${elim.round}${elim.by==='fbi'?' (FBI)':''}</span>` : 'รอดถึงจบเกม'}</td>
           </tr>`;
         }).join('')}
       </table>
@@ -833,10 +1051,10 @@ function screenHistory(){
   const stats = {};
   history.forEach(g=>{
     g.players.forEach(p=>{
-      if(!stats[p.name]) stats[p.name] = {played:0, spy:0, joker:0, villager:0, wins:0};
+      if(!stats[p.name]) stats[p.name] = {played:0, spy:0, joker:0, villager:0, fbi:0, seer:0, wins:0};
       stats[p.name].played++;
       stats[p.name][p.role]++;
-      if(p.role===g.winner) stats[p.name].wins++;
+      if(roleTeam(p.role)===g.winner) stats[p.name].wins++;
     });
   });
   const statRows = Object.entries(stats).sort((a,b)=>b[1].played-a[1].played);
