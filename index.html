@@ -514,6 +514,22 @@ function spyGuessedCorrectly(){
 function eligibleSkillActors(){
   return players.filter(p => game.active.has(p.id) && ['fbi','seer'].includes(game.roles[p.id]) && !game.skillsUsed.has(p.id));
 }
+function eligibleSkillRoles(){
+  const seen = new Set();
+  const roles = [];
+  eligibleSkillActors().forEach(p=>{
+    const r = game.roles[p.id];
+    if(!seen.has(r)){ seen.add(r); roles.push(r); }
+  });
+  return roles;
+}
+function pickSkillRole(role){
+  const actor = eligibleSkillActors().find(p=>game.roles[p.id]===role);
+  if(!actor) return;
+  skillActorId = actor.id;
+  skillPhase = 'pass';
+  render();
+}
 function openSkillMenu(){
   skillReturnScreen = screen;
   skillActorId = null; skillTargetId = null; skillPhase = 'pick';
@@ -525,7 +541,6 @@ function closeSkillMenu(){
   screen = skillReturnScreen;
   render();
 }
-function pickSkillActor(id){ skillActorId = id; skillPhase = 'pass'; render(); }
 function beginSkillAction(){ skillPhase = 'act'; render(); }
 function pickSkillTarget(id){ skillTargetId = id; render(); }
 function finishSkillUse(){
@@ -936,13 +951,14 @@ function screenVote(){
 
 function screenSkill(){
   if(!skillActorId){
-    const eligible = eligibleSkillActors();
+    const eligibleRoles = eligibleSkillRoles();
+    const roleIcon = {fbi:'🎖️', seer:'🔮'};
     return `<div class="card">
       <h2>🎯 ใช้สกิล</h2>
-      <p class="dim">ผู้เล่นที่มีสกิลและยังไม่เคยใช้ ให้บอกชื่อกับครูเบา ๆ แล้วครูแตะเลือกชื่อนั้น (รายชื่อนี้ไม่บอกใบ้บทบาท)</p>
-      ${eligible.length ? `<div class="vote-grid">
-        ${eligible.map(p=>`<div class="vote-card" onclick="pickSkillActor('${p.id}')">${escapeHtml(p.name)}</div>`).join('')}
-      </div>` : `<div class="empty-note">ไม่มีผู้เล่นที่ใช้สกิลได้ตอนนี้ (ยังไม่เปิดบทบาทมีสกิล หรือใช้ไปหมดแล้ว)</div>`}
+      <p class="dim">คนที่มีสกิลบอก "บทบาท" ของตัวเองกับครูเบา ๆ (ไม่ต้องบอกชื่อ) แล้วครูแตะปุ่มบทบาทนั้น ระบบจะรู้เองว่าเป็นใคร กันคนอื่นแอบเห็นชื่อ</p>
+      ${eligibleRoles.length ? `<div class="vote-grid">
+        ${eligibleRoles.map(r=>`<div class="vote-card" onclick="pickSkillRole('${r}')">${roleIcon[r]||''} ${ROLE_LABELS[r]}</div>`).join('')}
+      </div>` : `<div class="empty-note">ไม่มีบทบาทที่ใช้สกิลได้ตอนนี้ (ยังไม่เปิดบทบาทมีสกิล หรือใช้ไปหมดแล้ว)</div>`}
     </div>
     <div class="stack"><button class="btn btn-secondary" onclick="closeSkillMenu()">← กลับ</button></div>`;
   }
