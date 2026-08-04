@@ -93,8 +93,11 @@
 <div id="app"></div>
 <script>
 /* ============ CONFIG ============ */
+// ลิงก์เซิร์ฟเวอร์ Render ของคุณ — ผู้เล่นจะเชื่อมต่ออัตโนมัติโดยไม่ต้องกรอกเอง
+// ถ้าย้ายเซิร์ฟเวอร์ในอนาคต แก้ค่านี้แล้วอัปโหลดไฟล์ทับได้เลย
+const DEFAULT_SERVER_URL = 'https://oilspyserver.onrender.com';
 const SERVER_URL_KEY = 'spyhunt_server_url';
-let SERVER_URL = localStorage.getItem(SERVER_URL_KEY) || '';
+let SERVER_URL = localStorage.getItem(SERVER_URL_KEY) || DEFAULT_SERVER_URL;
 
 /* ============ PERSISTED SESSION ============ */
 function loadSession(){ try{ return JSON.parse(localStorage.getItem('spyhunt_session')||'null'); }catch(e){ return null; } }
