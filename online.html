@@ -88,6 +88,20 @@
   .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;z-index:500;}
   .modal-sheet{background:var(--panel);border-radius:16px 16px 0 0;padding:20px 18px 26px;width:100%;max-width:520px;max-height:80vh;overflow-y:auto;}
 </style>
+<script>
+/* Safety net: if anything throws before the app can render, show a message instead of a silent blank/black screen. */
+window.addEventListener('error', function(e){
+  const app = document.getElementById('app');
+  if (app && !app.dataset.rendered){
+    app.innerHTML = '<div style="max-width:520px;margin:40px auto;padding:20px;font-family:sans-serif;color:#E8E3D6;">'
+      + '<h2 style="color:#C7A03C;">เกิดข้อผิดพลาดในการโหลดหน้านี้</h2>'
+      + '<p>' + (e && e.message ? e.message : 'ไม่ทราบสาเหตุ') + '</p>'
+      + '<p>ลองรีเฟรชหน้าใหม่ หรือเช็คว่าอินเทอร์เน็ต/เครือข่ายไม่ได้บล็อก cdn.socket.io</p>'
+      + '<button onclick="location.reload()" style="padding:12px 18px;border-radius:10px;border:none;background:#C7A03C;color:#1A1500;font-weight:700;cursor:pointer;">รีเฟรชหน้านี้</button>'
+      + '</div>';
+  }
+}, true);
+</script>
 </head>
 <body>
 <div id="app"></div>
@@ -110,6 +124,7 @@ let state = null;        // latest public roomUpdate payload
 let myRole = null;       // latest private yourRole payload
 let skillResult = null;  // latest private skill result (seer)
 let connStatus = 'idle'; // idle | connecting | connected | error
+let connErrorMsg = null;
 let toastMsg = null;
 let toastTimer = null;
 let CATEGORY_LIST = ["อาหาร","สถานที่","อาชีพ","สัตว์","กีฬา","ของใช้ในบ้าน","เทศกาล","ยานพาหนะ"];
@@ -126,12 +141,19 @@ function showToast(msg){
 
 /* ============ SOCKET CONNECTION ============ */
 function connect(url, onReady){
-  if (socket) { socket.disconnect(); socket = null; }
-  connStatus = 'connecting'; render();
-  socket = io(url, { transports:['websocket','polling'] });
+  if (socket) { try{ socket.disconnect(); }catch(e){} socket = null; }
+  connStatus = 'connecting';
+  if (typeof io === 'undefined'){
+    connStatus = 'error';
+    connErrorMsg = 'โหลดระบบเชื่อมต่อ (Socket.io) ไม่สำเร็จ อาจเป็นเพราะอินเทอร์เน็ตหลุด หรือเครือข่ายบล็อก CDN ลองรีเฟรชหน้าใหม่ หรือเปลี่ยนเครือข่าย (เช่น สลับ WiFi เป็นเน็ตมือถือ)';
+    render();
+    return;
+  }
+  socket = io(url, { transports:['websocket','polling'] }); // assign BEFORE render() so render() doesn't think we're unconnected and re-trigger connect()
+  render();
 
   socket.on('connect', ()=>{
-    connStatus = 'connected';
+    connStatus = 'connected'; connErrorMsg = null;
     if (session && session.roomCode){
       socket.emit('joinRoom', { roomCode: session.roomCode, rejoinPlayerId: session.playerId }, (res)=>{
         if (res && res.error){ showToast(res.error); clearSession(); session=null; }
@@ -142,7 +164,11 @@ function connect(url, onReady){
     onReady && onReady();
   });
   socket.on('disconnect', ()=>{ connStatus='error'; render(); });
-  socket.on('connect_error', ()=>{ connStatus='error'; render(); });
+  socket.on('connect_error', (err)=>{
+    connStatus='error';
+    connErrorMsg = 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (' + (err && err.message ? err.message : 'unknown') + ') ถ้าเซิร์ฟเวอร์เพิ่งตื่นจากโหมดหลับ รอสัก 30-50 วินาทีแล้วลองใหม่';
+    render();
+  });
 
   socket.on('roomUpdate', (payload)=>{ state = payload; render(); });
   socket.on('yourRole', (payload)=>{ myRole = payload; skillResult=null; render(); });
@@ -505,7 +531,8 @@ function render(){
   const app = document.getElementById('app');
   let html = '';
   if (!SERVER_URL){ html = renderServerSetup(); }
-  else if (!socket){ connect(SERVER_URL); html = `<div class="card center"><p>กำลังเชื่อมต่อ...</p></div>`; }
+  else if (connStatus === 'error' && !state){ html = renderConnectError(); }
+  else if (!socket || connStatus === 'connecting'){ html = renderConnecting(); }
   else if (!state){ html = renderHome(); }
   else {
     html = (skillResult ? renderSkillResultBanner() : '') + ({
@@ -517,12 +544,32 @@ function render(){
     }[state.phase] || renderLobby)();
   }
   app.innerHTML = html;
+  app.dataset.rendered = '1';
   if (toastMsg){
     const t = document.createElement('div'); t.className='toast'; t.textContent = toastMsg;
     document.body.appendChild(t);
     setTimeout(()=>{ t.remove(); }, 3000);
   }
 }
+function renderConnecting(){
+  return `
+  <div class="brand">🕵️ สปายจับผิด <span class="tag">เล่นออนไลน์</span></div>
+  <div class="card center">
+    <p>🔌 กำลังเชื่อมต่อเซิร์ฟเวอร์...</p>
+    <p class="dim">ถ้าเซิร์ฟเวอร์เพิ่งตื่นจากโหมดหลับ อาจใช้เวลาไม่เกิน 1 นาทีครับ กรุณารอสักครู่</p>
+  </div>`;
+}
+function renderConnectError(){
+  return `
+  <div class="brand">🕵️ สปายจับผิด <span class="tag">เล่นออนไลน์</span></div>
+  <div class="card center">
+    <p>🔴 เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ</p>
+    <p class="dim">${connErrorMsg || 'ไม่ทราบสาเหตุ ลองใหม่อีกครั้ง'}</p>
+    <button class="btn btn-primary" onclick="retryConnect()">🔄 ลองเชื่อมต่อใหม่</button>
+    <a class="linklike" onclick="window.editServerUrl()">เปลี่ยนลิงก์เซิร์ฟเวอร์</a>
+  </div>`;
+}
+window.retryConnect = function(){ connect(SERVER_URL); };
 
 /* ============ BOOT ============ */
 if (SERVER_URL) connect(SERVER_URL, render);
