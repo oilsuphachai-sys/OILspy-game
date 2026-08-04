@@ -174,6 +174,11 @@ function connect(url, onReady){
   socket.on('yourRole', (payload)=>{ myRole = payload; skillResult=null; render(); });
   socket.on('eliminationAnnounced', (p)=>{ showToast('🚪 ' + p.name + ' ถูกคัดออก (' + p.roleLabel + ')'); });
   socket.on('fbiRevealBroadcast', (p)=>{ showToast('🕵️ FBI คัดออก: ' + p.name + ' (' + p.roleLabel + ')'); });
+  socket.on('kicked', ()=>{
+    showToast('คุณถูกเตะออกจากห้องโดยหัวห้อง');
+    clearSession(); session=null; state=null; myRole=null;
+    render();
+  });
   socket.on('skillResult', (r)=>{ skillResult = r; render(); });
   socket.on('timerTick', (t)=>{ if(state){ state.timer = { ...state.timer, remaining: t.remaining, running: t.running }; render(); } });
   socket.on('timerBuzz', ()=>{ showToast('⏰ หมดเวลาสนทนา!'); });
@@ -288,7 +293,10 @@ function renderLobby(){
       ${state.players.map(p=>`
         <div class="player-item ${p.connected?'':'off'}">
           <span class="name">${escapeHtml(p.name)}${p.id===state.hostId?'<span class="badge badge-host">หัวห้อง</span>':''}${p.id===session.playerId?'<span class="badge badge-you">คุณ</span>':''}</span>
-          <span class="dim" style="font-size:12px;">${p.connected?'ออนไลน์':'ออฟไลน์'}</span>
+          <span style="display:flex;align-items:center;gap:8px;">
+            <span class="dim" style="font-size:12px;">${p.connected?'ออนไลน์':'ออฟไลน์'}</span>
+            ${(isHost() && p.id!==session.playerId) ? `<button onclick="handleKick('${p.id}','${escapeHtml(p.name).replace(/'/g,"\\'")}')" style="background:var(--red);color:#fff;border:none;border-radius:6px;width:26px;height:26px;font-size:13px;cursor:pointer;">✕</button>` : ''}
+          </span>
         </div>`).join('')}
     </div>
   </div>
@@ -345,6 +353,10 @@ window.toggleCategory = function(c){
 window.handleStartGame = function(){
   socket.emit('startGame', {}, (res)=>{ if (res && res.error) showToast(res.error); });
 };
+window.handleKick = function(targetId, name){
+  if (!confirm('เตะ "' + name + '" ออกจากห้องนี้เลยไหม?')) return;
+  socket.emit('kickPlayer', { targetId }, (res)=>{ if (res && res.error) showToast(res.error); });
+};
 window.handleLeaveRoom = function(){
   if (!confirm('ออกจากห้องนี้เลยไหม?')) return;
   socket.emit('leaveRoom');
@@ -392,12 +404,37 @@ window.submitSkill = function(targetId){
   render();
 };
 
+function renderEliminatedInfo(){
+  const iAmOut = !state.activeIds.includes(session.playerId);
+  const list = state.eliminated || [];
+  let html = '';
+  if (iAmOut){
+    const mine = list.find(e=>e.id===session.playerId);
+    html += `
+    <div class="card" style="border-color:var(--red);">
+      <h3 style="color:var(--red);">🚪 คุณถูกคัดออกจากเกมแล้ว</h3>
+      <p class="dim">${mine ? ('บทบาทของคุณคือ ' + labelForRole(mine.role) + (mine.by==='fbi' ? ' (ถูก FBI คัดออก)' : ' (ถูกโหวตออก)')) : ''} ดูเกมต่อได้เลย แต่โหวต/ใช้สกิลไม่ได้แล้ว</p>
+    </div>`;
+  }
+  if (list.length){
+    html += `
+    <div class="card">
+      <h3>🪦 ผู้เล่นที่ถูกคัดออกแล้ว (${list.length})</h3>
+      <div class="player-list">
+        ${list.map(e=>`<div class="player-item"><span class="name">${escapeHtml(e.name)}</span><span class="role-pill ${e.role}">${labelForRole(e.role)}</span></div>`).join('')}
+      </div>
+    </div>`;
+  }
+  return html;
+}
+
 function renderDiscuss(){
   const t = state.timer;
   const active = state.players.filter(p=>state.activeIds.includes(p.id));
   const firstSpeaker = state.firstSpeakerId ? state.players.find(p=>p.id===state.firstSpeakerId) : null;
   return `
   ${renderTopBar()}
+  ${renderEliminatedInfo()}
   <div class="card">
     <div class="timer-display">${fmtTime(t.remaining)}</div>
     ${isHost() ? `
@@ -452,27 +489,38 @@ function renderVote(){
   Object.values(votes).forEach(t=>{ tally[t]=(tally[t]||0)+1; });
   const myVote = votes[session.playerId];
   const canIVote = state.activeIds.includes(session.playerId);
-  const sorted = active.slice().sort((a,b)=>(tally[b.id]||0)-(tally[a.id]||0));
-  const leader = sorted[0] && tally[sorted[0].id] ? sorted[0] : null;
+
+  // leader can be a player OR the collective "skip this round" option
+  let leaderId = null, leaderCount = 0;
+  active.forEach(p=>{ const c = tally[p.id]||0; if (c > leaderCount){ leaderCount = c; leaderId = p.id; } });
+  const skipCount = tally['SKIP']||0;
+  if (skipCount > leaderCount){ leaderId = 'SKIP'; leaderCount = skipCount; }
+  const leaderPlayer = leaderId && leaderId !== 'SKIP' ? active.find(p=>p.id===leaderId) : null;
 
   return `
   ${renderTopBar()}
+  ${renderEliminatedInfo()}
   <div class="card">
     <h3>🗳 โหวตคัดออก</h3>
-    <p class="dim">${canIVote?'แตะชื่อคนที่คุณสงสัยว่าเป็นสปาย':'คุณถูกคัดออกไปแล้ว ดูผลโหวตได้อย่างเดียว'}</p>
+    <p class="dim">${canIVote?'แตะชื่อคนที่คุณสงสัยว่าเป็นสปาย หรือแตะ "ข้ามรอบนี้" ถ้ายังไม่มั่นใจ':'คุณถูกคัดออกไปแล้ว ดูผลโหวตได้อย่างเดียว'}</p>
     ${active.map(p=>`
       <div class="vote-target ${myVote===p.id?'mine':''}" onclick="${canIVote?`castVote('${p.id}')`:''}" style="${canIVote?'':'cursor:default;'}">
         <span>${escapeHtml(p.name)}${p.id===session.playerId?' (คุณ)':''}</span>
         <span class="vote-count">${tally[p.id]||0} โหวต</span>
       </div>`).join('')}
+    <div class="vote-target ${myVote==='SKIP'?'mine':''}" onclick="${canIVote?`castVote('SKIP')`:''}" style="${canIVote?'':'cursor:default;'}border-style:dashed;">
+      <span>⏭ ข้ามรอบนี้ (ไม่คัดใครออก)</span>
+      <span class="vote-count">${skipCount} โหวต</span>
+    </div>
     ${canIVote && myVote ? `<button class="btn btn-secondary" onclick="castVote(null)">↩️ ยกเลิกโหวตของฉัน</button>` : ''}
   </div>
   ${isHost() ? `
   <div class="card">
     <h3>ตัดสินใจ (หัวห้อง)</h3>
-    <p class="dim">${leader ? 'คนที่ถูกโหวตมากสุด: ' + escapeHtml(leader.name) + ' (' + tally[leader.id] + ' โหวต)' : 'ยังไม่มีใครถูกโหวต'}</p>
-    ${leader ? `<button class="btn btn-danger" onclick="confirmElim('${leader.id}')">✅ ยืนยันคัดออก: ${escapeHtml(leader.name)}</button>` : ''}
-    <button class="btn btn-secondary" onclick="handleSkipVote()">⏭ ข้ามรอบนี้ ไม่คัดใครออก</button>
+    <p class="dim">${leaderId ? ('ตอนนี้มาแรงสุด: ' + (leaderId==='SKIP' ? 'ข้ามรอบนี้' : escapeHtml(leaderPlayer.name)) + ' (' + leaderCount + ' โหวต)') : 'ยังไม่มีใครถูกโหวต'}</p>
+    ${leaderId==='SKIP' ? `<button class="btn btn-secondary" onclick="handleSkipVote()">✅ ยืนยันข้ามรอบนี้ (ไม่คัดใครออก)</button>` : ''}
+    ${leaderPlayer ? `<button class="btn btn-danger" onclick="confirmElim('${leaderPlayer.id}')">✅ ยืนยันคัดออก: ${escapeHtml(leaderPlayer.name)}</button>` : ''}
+    <button class="btn btn-secondary" onclick="handleSkipVote()">⏭ ข้ามรอบนี้ (หัวห้องสั่งเอง ไม่ต้องรอโหวต)</button>
     <button class="btn btn-secondary" onclick="handleSpyGuessed()">🔑 สปายทายคำลับถูก (จบเกมทันที)</button>
   </div>` : ''}
   `;
