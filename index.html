@@ -319,7 +319,9 @@ function specialRoleCount(){
   return (settings.includeJoker?1:0) + (settings.includeFBI?1:0) + (settings.includeSeer?1:0);
 }
 function maxSpyAllowed(){
-  return Math.max(1, players.length - specialRoleCount() - 1);
+  const rosterFit = players.length - specialRoleCount() - 1;              // ที่นั่งพอสำหรับบทบาทพิเศษ + ชาวบ้านเปล่าอย่างน้อย 1 คน
+  const winnable  = Math.floor((players.length - (settings.includeJoker?1:0) - 1) / 2); // ฝั่งหมู่บ้านต้องมากกว่าสปายเสมอ
+  return Math.max(1, Math.min(rosterFit, winnable));
 }
 function changeSpyCount(delta){
   settings.spyCount = Math.min(maxSpyAllowed(), Math.max(1, settings.spyCount+delta));
@@ -771,6 +773,10 @@ function screenHome(){
       <button class="btn btn-secondary" onclick="screen='rules';render();">📖 วิธีเล่น / กติกา</button>
       <button class="btn btn-secondary" onclick="screen='history';render();">🗂 ประวัติการเล่น ${totalGames?('('+totalGames+')'):''}</button>
     </div>
+    <div class="divider"></div>
+    <h3>🌐 อยากเล่นคนละเครื่อง?</h3>
+    <p class="dim">โหมดนี้ต้องส่งต่อเครื่องเดียวกันดูโรลทีละคน ถ้าอยากให้เพื่อนแต่ละคนเข้าจากมือถือตัวเองผ่านรหัสห้อง ลองโหมดออนไลน์ดูได้</p>
+    <a href="./online.html" class="btn btn-secondary" style="display:block;text-decoration:none;text-align:center;">🕵️ เล่นออนไลน์ (คนละเครื่อง)</a>
     <div class="divider"></div>
     <h3>สำรองข้อมูล</h3>
     <p class="dim">บันทึกรายชื่อ/หมวดหมู่/ประวัติเป็นไฟล์ เพื่อโหลดกลับมาใช้ได้ทุกเครื่อง ทุกครั้งที่เปิดใหม่</p>

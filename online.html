@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>สปายจับผิด | เล่นออนไลน์</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Kanit:wght@600;700;800&family=Sarabun:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+  :root{
+    --bg:#0F1417; --panel:#1B2226; --panel-alt:#232C31; --panel-line:rgba(255,255,255,.07);
+    --paper:#EDE6D6; --paper-line:#DCD3B9; --gold:#C7A03C; --gold-ink:#1A1500;
+    --red:#A33B32; --green:#4F7C58; --blue:#3E6E96; --purple:#7C5FA0;
+    --ink:#E8E3D6; --ink-dim:#8FA0A6; --ink-paper:#2B2620;
+    --radius:16px; --shadow:0 12px 34px rgba(0,0,0,.5);
+    --font-display:'Kanit',sans-serif; --font-body:'Sarabun',sans-serif; --font-mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-body);min-height:100vh;}
+  #app{max-width:520px;margin:0 auto;padding:18px 16px 60px;}
+  h1,h2,h3{font-family:var(--font-display);margin:0 0 6px;font-weight:700;}
+  h1{font-size:22px;} h2{font-size:18px;} h3{font-size:15px;color:var(--gold);letter-spacing:.3px;}
+  p{line-height:1.65;margin:0 0 10px;}
+  .dim{color:var(--ink-dim);font-size:13.5px;}
+  .eyebrow{font-family:var(--font-mono);font-size:11px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;}
+  .brand{font-family:var(--font-display);font-weight:800;font-size:21px;display:flex;align-items:center;gap:8px;margin-bottom:18px;}
+  .brand .tag{font-family:var(--font-mono);font-size:9.5px;background:var(--red);color:#fff;padding:3px 7px;border-radius:4px;letter-spacing:1.5px;font-weight:600;}
+  .card{background:var(--panel);border-radius:var(--radius);padding:22px 18px;box-shadow:var(--shadow);border:1px solid var(--panel-line);margin-bottom:16px;}
+  .divider{height:1px;background:var(--panel-line);margin:16px 0;}
+  input[type=text], input[type=number]{width:100%;background:var(--panel-alt);border:1px solid var(--panel-line);color:var(--ink);padding:13px 14px;border-radius:10px;font-family:var(--font-body);font-size:15px;}
+  input::placeholder{color:var(--ink-dim);}
+  label.field{display:block;margin-bottom:14px;}
+  label.field .lbl{display:block;font-size:12.5px;color:var(--ink-dim);margin-bottom:6px;}
+  .btn{font-family:var(--font-display);font-weight:600;font-size:15px;padding:14px 18px;border-radius:11px;border:none;cursor:pointer;width:100%;transition:transform .12s ease, filter .12s ease, opacity .12s;margin-bottom:10px;}
+  .btn:active{transform:scale(.98);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-primary{background:var(--gold);color:var(--gold-ink);}
+  .btn-secondary{background:var(--panel-alt);color:var(--ink);border:1px solid var(--panel-line);}
+  .btn-danger{background:var(--red);color:#fff;}
+  .btn-green{background:var(--green);color:#fff;}
+  .row{display:flex;gap:10px;}
+  .row .btn{flex:1;}
+  .toggle-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--panel-line);}
+  .toggle-row:last-child{border-bottom:none;}
+  .toggle-row .lbl{font-weight:600;font-size:14.5px;}
+  .toggle-row .sub{font-size:12px;color:var(--ink-dim);}
+  .switch{position:relative;width:44px;height:26px;background:var(--panel-alt);border:1px solid var(--panel-line);border-radius:20px;cursor:pointer;flex-shrink:0;}
+  .switch.on{background:var(--gold);}
+  .switch .knob{position:absolute;top:2px;left:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:left .15s;}
+  .switch.on .knob{left:20px;background:var(--gold-ink);}
+  .stepper{display:flex;align-items:center;gap:10px;}
+  .stepper button{width:34px;height:34px;border-radius:8px;border:1px solid var(--panel-line);background:var(--panel-alt);color:var(--ink);font-size:17px;cursor:pointer;}
+  .stepper .val{font-family:var(--font-mono);font-weight:700;min-width:34px;text-align:center;}
+  .chip{display:inline-block;padding:6px 12px;border-radius:20px;background:var(--panel-alt);border:1px solid var(--panel-line);color:var(--ink-dim);font-size:12.5px;margin:3px 4px 3px 0;cursor:pointer;}
+  .chip.on{background:var(--gold);color:var(--gold-ink);border-color:var(--gold);font-weight:700;}
+  .roomcode{font-family:var(--font-mono);font-weight:700;font-size:34px;letter-spacing:6px;color:var(--gold);text-align:center;padding:14px 0;}
+  .player-list{display:flex;flex-direction:column;gap:8px;}
+  .player-item{display:flex;align-items:center;justify-content:space-between;background:var(--panel-alt);border-radius:10px;padding:11px 14px;border:1px solid var(--panel-line);}
+  .player-item.off{opacity:.4;}
+  .player-item .name{font-weight:600;}
+  .badge{font-family:var(--font-mono);font-size:9.5px;padding:2px 7px;border-radius:4px;letter-spacing:.5px;font-weight:700;margin-left:6px;}
+  .badge-host{background:var(--gold);color:var(--gold-ink);}
+  .badge-you{background:var(--blue);color:#fff;}
+  .phase-tag{font-family:var(--font-mono);font-size:9.5px;background:var(--red);color:#fff;padding:3px 8px;border-radius:4px;letter-spacing:1px;font-weight:700;}
+  .role-card{background:var(--paper);color:var(--ink-paper);border-radius:var(--radius);padding:26px 20px;text-align:center;box-shadow:var(--shadow);border:1px solid var(--paper-line);}
+  .role-circle{width:150px;height:150px;border-radius:50%;border:3px solid var(--red);display:flex;flex-direction:column;align-items:center;justify-content:center;margin:14px auto;}
+  .role-circle.villager{border-color:var(--green);} .role-circle.fbi{border-color:var(--blue);} .role-circle.seer{border-color:var(--purple);} .role-circle.joker{border-color:#B5892B;}
+  .role-circle .r1{font-family:var(--font-display);font-weight:800;font-size:19px;}
+  .role-circle .r2{font-family:var(--font-mono);font-size:10px;letter-spacing:2px;opacity:.7;}
+  .word{font-family:var(--font-display);font-weight:800;font-size:26px;margin:10px 0 4px;}
+  .timer-display{font-family:var(--font-mono);font-weight:700;font-size:48px;color:var(--gold);text-align:center;letter-spacing:2px;padding:10px 0;}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--panel-alt);border:1px solid var(--gold);color:var(--ink);padding:12px 20px;border-radius:10px;font-size:14px;z-index:999;box-shadow:var(--shadow);max-width:90%;text-align:center;}
+  .connbar{font-family:var(--font-mono);font-size:11px;text-align:center;padding:5px;border-radius:8px;margin-bottom:14px;}
+  .connbar.ok{background:rgba(79,124,88,.15);color:var(--green);}
+  .connbar.bad{background:rgba(163,59,50,.15);color:var(--red);}
+  .vote-target{width:100%;text-align:left;background:var(--panel-alt);border:1px solid var(--panel-line);color:var(--ink);border-radius:10px;padding:13px 14px;margin-bottom:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;}
+  .vote-target.mine{border-color:var(--gold);background:rgba(199,160,60,.12);}
+  .vote-count{font-family:var(--font-mono);font-weight:700;color:var(--gold);}
+  table.result-tbl{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table.result-tbl th,table.result-tbl td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--panel-line);}
+  table.result-tbl th{color:var(--ink-dim);font-weight:600;font-size:11.5px;}
+  .role-pill{padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:700;}
+  .role-pill.spy{background:var(--red);color:#fff;} .role-pill.villager{background:var(--green);color:#fff;}
+  .role-pill.joker{background:#B5892B;color:#fff;} .role-pill.fbi{background:var(--blue);color:#fff;} .role-pill.seer{background:var(--purple);color:#fff;}
+  .center{text-align:center;}
+  a.linklike{color:var(--gold);text-decoration:underline;cursor:pointer;font-size:12.5px;}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center;z-index:500;}
+  .modal-sheet{background:var(--panel);border-radius:16px 16px 0 0;padding:20px 18px 26px;width:100%;max-width:520px;max-height:80vh;overflow-y:auto;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+/* ============ CONFIG ============ */
+const SERVER_URL_KEY = 'spyhunt_server_url';
+let SERVER_URL = localStorage.getItem(SERVER_URL_KEY) || '';
+
+/* ============ PERSISTED SESSION ============ */
+function loadSession(){ try{ return JSON.parse(localStorage.getItem('spyhunt_session')||'null'); }catch(e){ return null; } }
+function saveSession(s){ localStorage.setItem('spyhunt_session', JSON.stringify(s)); }
+function clearSession(){ localStorage.removeItem('spyhunt_session'); }
+
+let session = loadSession(); // {roomCode, playerId, name}
+let socket = null;
+let state = null;        // latest public roomUpdate payload
+let myRole = null;       // latest private yourRole payload
+let skillResult = null;  // latest private skill result (seer)
+let connStatus = 'idle'; // idle | connecting | connected | error
+let toastMsg = null;
+let toastTimer = null;
+let CATEGORY_LIST = ["อาหาร","สถานที่","อาชีพ","สัตว์","กีฬา","ของใช้ในบ้าน","เทศกาล","ยานพาหนะ"];
+let localSelectedCategories = new Set(CATEGORY_LIST);
+let voteSelection = null;
+let skillPickerOpen = false;
+
+function showToast(msg){
+  toastMsg = msg;
+  render();
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ toastMsg=null; render(); }, 3200);
+}
+
+/* ============ SOCKET CONNECTION ============ */
+function connect(url, onReady){
+  if (socket) { socket.disconnect(); socket = null; }
+  connStatus = 'connecting'; render();
+  socket = io(url, { transports:['websocket','polling'] });
+
+  socket.on('connect', ()=>{
+    connStatus = 'connected';
+    if (session && session.roomCode){
+      socket.emit('joinRoom', { roomCode: session.roomCode, rejoinPlayerId: session.playerId }, (res)=>{
+        if (res && res.error){ showToast(res.error); clearSession(); session=null; }
+        render();
+      });
+    }
+    render();
+    onReady && onReady();
+  });
+  socket.on('disconnect', ()=>{ connStatus='error'; render(); });
+  socket.on('connect_error', ()=>{ connStatus='error'; render(); });
+
+  socket.on('roomUpdate', (payload)=>{ state = payload; render(); });
+  socket.on('yourRole', (payload)=>{ myRole = payload; skillResult=null; render(); });
+  socket.on('eliminationAnnounced', (p)=>{ showToast('🚪 ' + p.name + ' ถูกคัดออก (' + p.roleLabel + ')'); });
+  socket.on('fbiRevealBroadcast', (p)=>{ showToast('🕵️ FBI คัดออก: ' + p.name + ' (' + p.roleLabel + ')'); });
+  socket.on('skillResult', (r)=>{ skillResult = r; render(); });
+  socket.on('timerTick', (t)=>{ if(state){ state.timer = { ...state.timer, remaining: t.remaining, running: t.running }; render(); } });
+  socket.on('timerBuzz', ()=>{ showToast('⏰ หมดเวลาสนทนา!'); });
+}
+
+/* ============ SCREENS ============ */
+function el(html){ const d = document.createElement('div'); d.innerHTML = html; return d.firstElementChild; }
+
+function renderServerSetup(){
+  return `
+  <div class="brand">🕵️ สปายจับผิด <span class="tag">เล่นออนไลน์</span></div>
+  <div class="card">
+    <div class="eyebrow">ตั้งค่าเซิร์ฟเวอร์</div>
+    <h2>ใส่ลิงก์เซิร์ฟเวอร์ (Render)</h2>
+    <p class="dim">เอาลิงก์ที่ได้จากการ deploy บน Render มาใส่ตรงนี้ เช่น https://your-app.onrender.com — ต้องใส่ครั้งเดียว ระบบจะจำไว้ในเครื่องนี้</p>
+    <label class="field">
+      <span class="lbl">URL เซิร์ฟเวอร์</span>
+      <input type="text" id="serverUrlInput" placeholder="https://your-app.onrender.com" value="${SERVER_URL}">
+    </label>
+    <button class="btn btn-primary" onclick="handleSaveServerUrl()">เชื่อมต่อ</button>
+    <p class="dim" style="margin-top:10px;font-size:12px;">⏳ เซิร์ฟเวอร์ฟรีของ Render จะ "หลับ" ถ้าไม่มีคนใช้นานๆ ครั้งแรกที่เชื่อมต่ออาจใช้เวลาถึง 30-50 วินาที รอสักครู่นะครับ</p>
+  </div>`;
+}
+window.handleSaveServerUrl = function(){
+  const v = document.getElementById('serverUrlInput').value.trim().replace(/\/+$/,'');
+  if (!v){ showToast('กรุณาใส่ลิงก์เซิร์ฟเวอร์'); return; }
+  SERVER_URL = v;
+  localStorage.setItem(SERVER_URL_KEY, v);
+  connect(SERVER_URL);
+};
+
+function renderHome(){
+  return `
+  <div class="brand">🕵️ สปายจับผิด <span class="tag">เล่นออนไลน์</span></div>
+  <div class="connbar ${connStatus==='connected'?'ok':'bad'}">${connStatus==='connected'?'🟢 เชื่อมต่อเซิร์ฟเวอร์แล้ว':connStatus==='connecting'?'🟡 กำลังเชื่อมต่อ... (อาจใช้เวลาถึง 50 วิ ถ้าเซิร์ฟเวอร์เพิ่งตื่น)':'🔴 เชื่อมต่อไม่ได้'}</div>
+  <div class="card">
+    <div class="eyebrow">สร้างห้องใหม่</div>
+    <h2>เป็นหัวห้อง</h2>
+    <label class="field">
+      <span class="lbl">ชื่อของคุณ</span>
+      <input type="text" id="createName" placeholder="เช่น ครูออย" maxlength="24">
+    </label>
+    <button class="btn btn-primary" onclick="handleCreateRoom()">➕ สร้างห้อง</button>
+  </div>
+  <div class="card">
+    <div class="eyebrow">เข้าห้องที่มีอยู่</div>
+    <h2>เข้าห้องด้วยรหัส</h2>
+    <label class="field">
+      <span class="lbl">รหัสห้อง (5 ตัวอักษร)</span>
+      <input type="text" id="joinCode" placeholder="เช่น AB3K9" maxlength="6" style="text-transform:uppercase;letter-spacing:3px;">
+    </label>
+    <label class="field">
+      <span class="lbl">ชื่อของคุณ</span>
+      <input type="text" id="joinName" placeholder="เช่น ปอนด์" maxlength="24">
+    </label>
+    <button class="btn btn-secondary" onclick="handleJoinRoom()">🔑 เข้าห้อง</button>
+  </div>
+  <p class="center"><a class="linklike" onclick="window.editServerUrl()">เปลี่ยนลิงก์เซิร์ฟเวอร์</a></p>
+  <p class="center"><a class="linklike" href="./index.html">← กลับไปโหมดเครื่องเดียว (ส่งต่อเครื่อง)</a></p>
+  `;
+}
+window.editServerUrl = function(){ SERVER_URL=''; localStorage.removeItem(SERVER_URL_KEY); if(socket) socket.disconnect(); connStatus='idle'; state=null; render(); };
+window.handleCreateRoom = function(){
+  const name = document.getElementById('createName').value.trim();
+  if (!name){ showToast('กรุณาใส่ชื่อ'); return; }
+  socket.emit('createRoom', { name }, (res)=>{
+    if (res.error){ showToast(res.error); return; }
+    session = { roomCode: res.roomCode, playerId: res.playerId, name };
+    saveSession(session);
+    render();
+  });
+};
+window.handleJoinRoom = function(){
+  const roomCode = document.getElementById('joinCode').value.trim().toUpperCase();
+  const name = document.getElementById('joinName').value.trim();
+  if (!roomCode || !name){ showToast('กรุณาใส่รหัสห้องและชื่อ'); return; }
+  socket.emit('joinRoom', { roomCode, name }, (res)=>{
+    if (res.error){ showToast(res.error); return; }
+    session = { roomCode: res.roomCode, playerId: res.playerId, name };
+    saveSession(session);
+    render();
+  });
+};
+
+function isHost(){ return state && session && state.hostId === session.playerId; }
+function me(){ return state ? state.players.find(p=>p.id===session.playerId) : null; }
+
+function renderTopBar(){
+  const phaseNames = { lobby:'ห้องรอ', reveal:'เปิดโรล', discuss:'สนทนา', vote:'โหวต', result:'ผลลัพธ์' };
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+    <div class="brand" style="margin-bottom:0;">🕵️ สปายจับผิด <span class="tag">รอบ ${state.round||1}</span></div>
+    <span class="phase-tag">${phaseNames[state.phase]||''}</span>
+  </div>
+  <div class="connbar ${connStatus==='connected'?'ok':'bad'}">${connStatus==='connected'?'🟢 ห้อง '+state.code:'🔴 หลุดการเชื่อมต่อ กำลังพยายามเชื่อมต่อใหม่...'}</div>
+  `;
+}
+
+function renderLobby(){
+  const s = state.settings;
+  const maxSpy = 99; // server clamps; we just show current value, +/- calls server which re-clamps
+  return `
+  ${renderTopBar()}
+  <div class="card">
+    <div class="eyebrow">รหัสห้อง (ให้เพื่อนใช้เข้าห้อง)</div>
+    <div class="roomcode">${state.code}</div>
+    <p class="dim center">แชร์รหัสนี้ให้เพื่อนพิมพ์ตอนกด "เข้าห้อง"</p>
+  </div>
+  <div class="card">
+    <h3>👥 ผู้เล่น (${state.players.length}) <span class="dim" style="font-weight:400;">ต้องมีอย่างน้อย 3 คน</span></h3>
+    <div class="player-list">
+      ${state.players.map(p=>`
+        <div class="player-item ${p.connected?'':'off'}">
+          <span class="name">${escapeHtml(p.name)}${p.id===state.hostId?'<span class="badge badge-host">หัวห้อง</span>':''}${p.id===session.playerId?'<span class="badge badge-you">คุณ</span>':''}</span>
+          <span class="dim" style="font-size:12px;">${p.connected?'ออนไลน์':'ออฟไลน์'}</span>
+        </div>`).join('')}
+    </div>
+  </div>
+  ${isHost() ? renderHostSettings(s) : `<div class="card"><p class="dim">รอหัวห้อง (${state.players.find(p=>p.id===state.hostId)?.name||''}) ตั้งค่าและกดเริ่มเกม...</p></div>`}
+  ${isHost() ? `<button class="btn btn-primary" onclick="handleStartGame()">🎬 เริ่มเกม</button>` : ''}
+  <button class="btn btn-secondary" onclick="handleLeaveRoom()">🚪 ออกจากห้อง</button>
+  `;
+}
+
+function renderHostSettings(s){
+  return `
+  <div class="card">
+    <h3>⚙️ ตั้งค่าเกม</h3>
+    <div class="toggle-row">
+      <div><div class="lbl">จำนวนสปาย</div></div>
+      <div class="stepper">
+        <button onclick="adjSpy(-1)">−</button>
+        <span class="val">${s.spyCount}</span>
+        <button onclick="adjSpy(1)">+</button>
+      </div>
+    </div>
+    ${toggleRow('เปิดใช้โจ๊กเกอร์','ชนะทันทีถ้าถูกโหวตออกแบบปกติ','includeJoker', s.includeJoker)}
+    ${toggleRow('เปิดใช้ FBI','คัดผู้เล่นออกได้ทันที 1 ครั้ง/เกม','includeFBI', s.includeFBI)}
+    ${toggleRow('เปิดใช้ผู้หยั่งรู้','แอบดูบทบาทผู้เล่น 1 คนได้ 1 ครั้ง/เกม','includeSeer', s.includeSeer)}
+    <div class="divider"></div>
+    <div class="toggle-row">
+      <div><div class="lbl">เวลาสนทนาต่อรอบ</div></div>
+      <div class="stepper">
+        <button onclick="adjTimer(-30)">−</button>
+        <span class="val" style="min-width:54px;">${fmtTime(s.timerSeconds)}</span>
+        <button onclick="adjTimer(30)">+</button>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="lbl" style="margin-bottom:8px;">หมวดหมู่คำลับ (แตะเพื่อเปิด/ปิด)</div>
+    ${CATEGORY_LIST.map(c=>`<span class="chip ${s.categories.includes(c)?'on':''}" onclick="toggleCategory('${c}')">${c}</span>`).join('')}
+  </div>`;
+}
+function toggleRow(label, sub, key, on){
+  return `<div class="toggle-row">
+    <div><div class="lbl">${label}</div><div class="sub">${sub}</div></div>
+    <div class="switch ${on?'on':''}" onclick="toggleSetting('${key}')"><div class="knob"></div></div>
+  </div>`;
+}
+function fmtTime(sec){ const m=Math.floor(sec/60), s=sec%60; return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); }
+window.adjSpy = function(d){ socket.emit('updateSettings', { spyCount: Math.max(1, state.settings.spyCount + d) }); };
+window.adjTimer = function(d){ socket.emit('updateSettings', { timerSeconds: state.settings.timerSeconds + d }); };
+window.toggleSetting = function(key){ const s={}; s[key] = !state.settings[key]; socket.emit('updateSettings', s); };
+window.toggleCategory = function(c){
+  const cur = new Set(state.settings.categories);
+  if (cur.has(c)) { if (cur.size>1) cur.delete(c); } else cur.add(c);
+  socket.emit('updateSettings', { categories: Array.from(cur) });
+};
+window.handleStartGame = function(){
+  socket.emit('startGame', {}, (res)=>{ if (res && res.error) showToast(res.error); });
+};
+window.handleLeaveRoom = function(){
+  if (!confirm('ออกจากห้องนี้เลยไหม?')) return;
+  socket.emit('leaveRoom');
+  clearSession(); session=null; state=null; myRole=null;
+  render();
+};
+
+function renderReveal(){
+  const g = myRole;
+  const ready = state.readyIds.includes(session.playerId);
+  if (!g) return `${renderTopBar()}<div class="card center"><p>กำลังโหลดบทบาทของคุณ...</p></div>`;
+  const cls = g.role==='spy' ? '' : g.role;
+  return `
+  ${renderTopBar()}
+  <div class="role-card">
+    <div class="eyebrow" style="color:var(--red);">ห้ามให้คนอื่นเห็นจอนี้!</div>
+    <div class="role-circle ${cls}">
+      <div class="r1">${g.roleLabel}</div>
+      <div class="r2">${g.role.toUpperCase()}</div>
+    </div>
+    <p class="dim">หมวดหมู่: ${g.category}</p>
+    <div class="word">${g.word ? g.word : '?????'}</div>
+    ${g.role==='spy' ? '<p class="dim">คุณไม่รู้คำลับ ฟังเพื่อนคุยให้ดีแล้วแกล้งพูดกลืนไปกับคนอื่น พยายามเดาคำลับให้ออกโดยไม่ให้ใครจับได้ว่าคุณคือสปาย</p>' : ''}
+    ${g.role==='joker' ? '<p class="dim">คุณคือโจ๊กเกอร์ ถ้าคุณถูกโหวตออกแบบปกติ คุณชนะทันที! เล่นให้น่าสงสัยเข้าไว้</p>' : ''}
+    ${g.role==='fbi' ? '<p class="dim">คุณมีสิทธิ์คัดผู้เล่น 1 คนออกจากเกมทันที ใช้ได้ 1 ครั้งตลอดเกม กดปุ่ม "ใช้สกิล" ในหน้าสนทนาเมื่อพร้อม</p>' : ''}
+    ${g.role==='seer' ? '<p class="dim">คุณสามารถแอบดูบทบาทของผู้เล่น 1 คนได้ 1 ครั้งตลอดเกม กดปุ่ม "ใช้สกิล" ในหน้าสนทนาเมื่อพร้อม</p>' : ''}
+  </div>
+  <button class="btn ${ready?'btn-secondary':'btn-primary'}" style="margin-top:14px;" onclick="handleMarkReady()" ${ready?'disabled':''}>${ready?'✅ พร้อมแล้ว รอเพื่อน...':'✅ จำแล้ว พร้อมเล่น'}</button>
+  <p class="dim center">พร้อมแล้ว ${state.readyIds.length}/${state.players.length} คน</p>
+  ${isHost() ? `<button class="btn btn-primary" onclick="handleGoDiscuss()">▶️ เริ่มช่วงสนทนา (ข้ามรอได้เลย)</button>` : ''}
+  `;
+}
+window.handleMarkReady = function(){ socket.emit('markReady'); };
+window.handleGoDiscuss = function(){ socket.emit('goToDiscuss'); };
+
+function renderSkillEligibleButton(){
+  if (!state.skillEligible.includes(session.playerId)) return '';
+  return `<button class="btn btn-green" onclick="openSkillPicker()">🔎 ใช้สกิล (${myRole && myRole.role==='fbi' ? 'คัดผู้เล่นออก' : 'ดูบทบาทลับ'})</button>`;
+}
+window.openSkillPicker = function(){ skillPickerOpen = true; render(); };
+window.closeSkillPicker = function(){ skillPickerOpen = false; render(); };
+window.submitSkill = function(targetId){
+  socket.emit('useSkill', { targetId }, (res)=>{ if (res && res.error) showToast(res.error); });
+  skillPickerOpen = false;
+  render();
+};
+
+function renderDiscuss(){
+  const t = state.timer;
+  const active = state.players.filter(p=>state.activeIds.includes(p.id));
+  const firstSpeaker = state.firstSpeakerId ? state.players.find(p=>p.id===state.firstSpeakerId) : null;
+  return `
+  ${renderTopBar()}
+  <div class="card">
+    <div class="timer-display">${fmtTime(t.remaining)}</div>
+    ${isHost() ? `
+    <div class="row">
+      <button class="btn btn-primary" onclick="timerCtl('${t.running?'pause':'start'}')">${t.running?'⏸ หยุดชั่วคราว':'▶️ เริ่มจับเวลา'}</button>
+      <button class="btn btn-secondary" onclick="timerCtl('reset')">🔄 รีเซ็ต</button>
+    </div>
+    <div class="row">
+      <button class="btn btn-secondary" onclick="timerAdj(-30)">−30 วิ</button>
+      <button class="btn btn-secondary" onclick="timerAdj(30)">+30 วิ</button>
+    </div>` : `<p class="dim center">${t.running?'⏳ กำลังนับเวลา...':'⏸ หัวห้องหยุดเวลาไว้'}</p>`}
+  </div>
+  <div class="card">
+    <h3>🎲 คนเริ่มพูดก่อน</h3>
+    ${firstSpeaker ? `<p style="font-size:18px;font-weight:700;">${escapeHtml(firstSpeaker.name)}</p>` : `<p class="dim">ยังไม่ได้สุ่ม</p>`}
+    ${isHost() ? `<button class="btn btn-secondary" onclick="handleRandomFirst()">🎲 สุ่มคนเริ่มก่อน</button>` : ''}
+  </div>
+  <div class="card">
+    <h3>ผู้เล่นที่ยังอยู่ในเกม (${active.length})</h3>
+    <div class="player-list">
+      ${active.map(p=>`<div class="player-item ${p.connected?'':'off'}"><span class="name">${escapeHtml(p.name)}${p.id===session.playerId?'<span class="badge badge-you">คุณ</span>':''}</span></div>`).join('')}
+    </div>
+  </div>
+  ${renderSkillEligibleButton()}
+  ${isHost() ? `<button class="btn btn-danger" onclick="handleGoVote()">🏛 ไปหน้าโหวต</button>` : ''}
+  ${skillPickerOpen ? renderSkillModal() : ''}
+  `;
+}
+window.timerCtl = function(action){ socket.emit('timerControl', { action }); };
+window.timerAdj = function(delta){ socket.emit('timerControl', { action:'adjust', delta }); };
+window.handleRandomFirst = function(){ socket.emit('randomizeFirstSpeaker'); };
+window.handleGoVote = function(){ socket.emit('goToVote'); };
+
+function renderSkillModal(){
+  const others = state.players.filter(p=>state.activeIds.includes(p.id) && p.id!==session.playerId);
+  const isFbi = myRole && myRole.role==='fbi';
+  return `
+  <div class="modal-bg" onclick="if(event.target===this) closeSkillPicker()">
+    <div class="modal-sheet">
+      <h3>${isFbi?'เลือกคนที่จะคัดออกทันที':'เลือกคนที่จะดูบทบาท'}</h3>
+      <p class="dim">${isFbi?'⚠️ ใช้ได้ครั้งเดียวตลอดเกม เมื่อกดแล้วคนนั้นจะถูกคัดออกทันที':'⚠️ ใช้ได้ครั้งเดียวตลอดเกม จะเห็นแค่คนเดียว'}</p>
+      ${others.map(p=>`<button class="btn btn-secondary" onclick="submitSkill('${p.id}')">${escapeHtml(p.name)}</button>`).join('')}
+      <button class="btn btn-secondary" onclick="closeSkillPicker()">ยกเลิก</button>
+    </div>
+  </div>`;
+}
+
+function renderVote(){
+  const active = state.players.filter(p=>state.activeIds.includes(p.id));
+  const votes = state.votes || {};
+  const tally = {};
+  Object.values(votes).forEach(t=>{ tally[t]=(tally[t]||0)+1; });
+  const myVote = votes[session.playerId];
+  const canIVote = state.activeIds.includes(session.playerId);
+  const sorted = active.slice().sort((a,b)=>(tally[b.id]||0)-(tally[a.id]||0));
+  const leader = sorted[0] && tally[sorted[0].id] ? sorted[0] : null;
+
+  return `
+  ${renderTopBar()}
+  <div class="card">
+    <h3>🗳 โหวตคัดออก</h3>
+    <p class="dim">${canIVote?'แตะชื่อคนที่คุณสงสัยว่าเป็นสปาย':'คุณถูกคัดออกไปแล้ว ดูผลโหวตได้อย่างเดียว'}</p>
+    ${active.map(p=>`
+      <div class="vote-target ${myVote===p.id?'mine':''}" onclick="${canIVote?`castVote('${p.id}')`:''}" style="${canIVote?'':'cursor:default;'}">
+        <span>${escapeHtml(p.name)}${p.id===session.playerId?' (คุณ)':''}</span>
+        <span class="vote-count">${tally[p.id]||0} โหวต</span>
+      </div>`).join('')}
+    ${canIVote && myVote ? `<button class="btn btn-secondary" onclick="castVote(null)">↩️ ยกเลิกโหวตของฉัน</button>` : ''}
+  </div>
+  ${isHost() ? `
+  <div class="card">
+    <h3>ตัดสินใจ (หัวห้อง)</h3>
+    <p class="dim">${leader ? 'คนที่ถูกโหวตมากสุด: ' + escapeHtml(leader.name) + ' (' + tally[leader.id] + ' โหวต)' : 'ยังไม่มีใครถูกโหวต'}</p>
+    ${leader ? `<button class="btn btn-danger" onclick="confirmElim('${leader.id}')">✅ ยืนยันคัดออก: ${escapeHtml(leader.name)}</button>` : ''}
+    <button class="btn btn-secondary" onclick="handleSkipVote()">⏭ ข้ามรอบนี้ ไม่คัดใครออก</button>
+    <button class="btn btn-secondary" onclick="handleSpyGuessed()">🔑 สปายทายคำลับถูก (จบเกมทันที)</button>
+  </div>` : ''}
+  `;
+}
+window.castVote = function(targetId){ socket.emit('castVote', { targetId }); };
+window.confirmElim = function(targetId){
+  if (!confirm('ยืนยันคัดออกคนนี้?')) return;
+  socket.emit('confirmElimination', { targetId });
+};
+window.handleSkipVote = function(){ socket.emit('skipVote'); };
+window.handleSpyGuessed = function(){
+  if (!confirm('ยืนยันว่าสปายทายคำลับถูกต้อง? เกมจะจบทันทีและสปายชนะ')) return;
+  socket.emit('spyGuessedCorrectly');
+};
+
+function renderResult(){
+  const winnerText = { villager:'🛡 ชาวบ้านชนะ!', spy:'🕵️ สปายชนะ!', joker:'🃏 โจ๊กเกอร์ชนะ!' };
+  const winnerColor = { villager:'var(--green)', spy:'var(--red)', joker:'#B5892B' };
+  return `
+  ${renderTopBar()}
+  <div class="card">
+    <div class="eyebrow">จบเกม</div>
+    <h2 style="color:${winnerColor[state.winner]||'var(--gold)'};">${winnerText[state.winner]||''}</h2>
+    <p>${state.winnerReason||''}</p>
+    <p class="dim">คำลับคือ "<b>${state.word||''}</b>" (หมวดหมู่: ${state.category||''})</p>
+  </div>
+  <div class="card">
+    <h3>สรุปบทบาททั้งหมด</h3>
+    <table class="result-tbl">
+      <tr><th>ผู้เล่น</th><th>บทบาท</th></tr>
+      ${(state.roleReveal||[]).map(r=>`<tr><td>${escapeHtml(r.name)}</td><td><span class="role-pill ${r.role}">${labelForRole(r.role)}</span></td></tr>`).join('')}
+    </table>
+  </div>
+  ${isHost() ? `<button class="btn btn-primary" onclick="handlePlayAgain()">🔁 เล่นรอบใหม่ (ผู้เล่นเดิม)</button>` : `<p class="dim center">รอหัวห้องเริ่มรอบใหม่...</p>`}
+  <button class="btn btn-secondary" onclick="handleLeaveRoom()">🚪 ออกจากห้อง</button>
+  `;
+}
+function labelForRole(r){ return {villager:'ชาวบ้าน',spy:'สปาย',joker:'โจ๊กเกอร์',fbi:'FBI',seer:'ผู้หยั่งรู้'}[r]||r; }
+window.handlePlayAgain = function(){ socket.emit('playAgain'); };
+
+/* skill result popup (seer) */
+function renderSkillResultBanner(){
+  if (!skillResult) return '';
+  return `<div class="card" style="border-color:var(--purple);">
+    <h3>🔮 ผลจากสกิลผู้หยั่งรู้</h3>
+    <p><b>${escapeHtml(skillResult.targetName)}</b> คือ <span class="role-pill ${skillResult.targetRole}">${skillResult.roleLabel}</span></p>
+    <button class="btn btn-secondary" onclick="dismissSkillResult()">รับทราบ</button>
+  </div>`;
+}
+window.dismissSkillResult = function(){ skillResult=null; render(); };
+
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+/* ============ MAIN RENDER ============ */
+function render(){
+  const app = document.getElementById('app');
+  let html = '';
+  if (!SERVER_URL){ html = renderServerSetup(); }
+  else if (!socket){ connect(SERVER_URL); html = `<div class="card center"><p>กำลังเชื่อมต่อ...</p></div>`; }
+  else if (!state){ html = renderHome(); }
+  else {
+    html = (skillResult ? renderSkillResultBanner() : '') + ({
+      lobby: renderLobby,
+      reveal: renderReveal,
+      discuss: renderDiscuss,
+      vote: renderVote,
+      result: renderResult
+    }[state.phase] || renderLobby)();
+  }
+  app.innerHTML = html;
+  if (toastMsg){
+    const t = document.createElement('div'); t.className='toast'; t.textContent = toastMsg;
+    document.body.appendChild(t);
+    setTimeout(()=>{ t.remove(); }, 3000);
+  }
+}
+
+/* ============ BOOT ============ */
+if (SERVER_URL) connect(SERVER_URL, render);
+render();
+</script>
+</body>
+</html>
