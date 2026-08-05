@@ -330,6 +330,14 @@ function renderHostSettings(s){
         <button onclick="adjTimer(30)">+</button>
       </div>
     </div>
+    <div class="toggle-row">
+      <div><div class="lbl">เวลาโหวตต่อรอบ</div><div class="sub">หมดเวลาแล้วคนที่ยังไม่โหวต = ข้ามรอบอัตโนมัติ</div></div>
+      <div class="stepper">
+        <button onclick="adjVoteTimer(-15)">−</button>
+        <span class="val" style="min-width:54px;">${fmtTime(s.voteTimerSeconds)}</span>
+        <button onclick="adjVoteTimer(15)">+</button>
+      </div>
+    </div>
     <div class="divider"></div>
     <div class="lbl" style="margin-bottom:8px;">หมวดหมู่คำลับ (แตะเพื่อเปิด/ปิด)</div>
     ${CATEGORY_LIST.map(c=>`<span class="chip ${s.categories.includes(c)?'on':''}" onclick="toggleCategory('${c}')">${c}</span>`).join('')}
@@ -344,6 +352,7 @@ function toggleRow(label, sub, key, on){
 function fmtTime(sec){ const m=Math.floor(sec/60), s=sec%60; return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0'); }
 window.adjSpy = function(d){ socket.emit('updateSettings', { spyCount: Math.max(1, state.settings.spyCount + d) }); };
 window.adjTimer = function(d){ socket.emit('updateSettings', { timerSeconds: state.settings.timerSeconds + d }); };
+window.adjVoteTimer = function(d){ socket.emit('updateSettings', { voteTimerSeconds: state.settings.voteTimerSeconds + d }); };
 window.toggleSetting = function(key){ const s={}; s[key] = !state.settings[key]; socket.emit('updateSettings', s); };
 window.toggleCategory = function(c){
   const cur = new Set(state.settings.categories);
@@ -500,6 +509,10 @@ function renderVote(){
   return `
   ${renderTopBar()}
   ${renderEliminatedInfo()}
+  <div class="card center">
+    <div class="timer-display" style="font-size:36px;">${fmtTime(state.timer.remaining)}</div>
+    <p class="dim">⏱ หมดเวลาแล้ว คนที่ยังไม่โหวต = นับเป็นข้ามรอบอัตโนมัติ</p>
+  </div>
   <div class="card">
     <h3>🗳 โหวตคัดออก</h3>
     <p class="dim">${canIVote?'แตะชื่อคนที่คุณสงสัยว่าเป็นสปาย หรือแตะ "ข้ามรอบนี้" ถ้ายังไม่มั่นใจ':'คุณถูกคัดออกไปแล้ว ดูผลโหวตได้อย่างเดียว'}</p>
