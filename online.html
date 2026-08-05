@@ -341,6 +341,15 @@ function renderHostSettings(s){
     <div class="divider"></div>
     <div class="lbl" style="margin-bottom:8px;">หมวดหมู่คำลับ (แตะเพื่อเปิด/ปิด)</div>
     ${CATEGORY_LIST.map(c=>`<span class="chip ${s.categories.includes(c)?'on':''}" onclick="toggleCategory('${c}')">${c}</span>`).join('')}
+    ${(state.customCategories||[]).map(c=>`<span class="chip ${s.categories.includes(c)?'on':''}" style="position:relative;padding-right:22px;">
+      <span onclick="toggleCategory('${c}')">${escapeHtml(c)} ★</span>
+      <span onclick="handleRemoveCategory('${c}')" style="position:absolute;right:6px;top:50%;transform:translateY(-50%);opacity:.7;">✕</span>
+    </span>`).join('')}
+    <div class="divider"></div>
+    <div class="lbl" style="margin-bottom:8px;">➕ เพิ่มหมวดหมู่ใหม่</div>
+    <label class="field"><span class="lbl">ชื่อหมวดหมู่ เช่น ซีรีส์เกาหลี</span><input type="text" id="newCatName" placeholder="ชื่อหมวดหมู่"></label>
+    <label class="field"><span class="lbl">คำในหมวดหมู่ (อย่างน้อย 3 คำ คั่นด้วยจุลภาค)</span><input type="text" id="newCatWords" placeholder="คำที่ 1, คำที่ 2, คำที่ 3, ..."></label>
+    <button class="btn btn-secondary" onclick="handleAddCategory()">➕ เพิ่มหมวดหมู่นี้</button>
   </div>`;
 }
 function toggleRow(label, sub, key, on){
@@ -358,6 +367,17 @@ window.toggleCategory = function(c){
   const cur = new Set(state.settings.categories);
   if (cur.has(c)) { if (cur.size>1) cur.delete(c); } else cur.add(c);
   socket.emit('updateSettings', { categories: Array.from(cur) });
+};
+window.handleAddCategory = function(){
+  const name = document.getElementById('newCatName').value;
+  const words = document.getElementById('newCatWords').value.split(',');
+  socket.emit('addCustomCategory', { name, words }, (res)=>{
+    if (res && res.error) { showToast(res.error); return; }
+    showToast('เพิ่มหมวดหมู่ "'+name.trim()+'" แล้ว');
+  });
+};
+window.handleRemoveCategory = function(name){
+  socket.emit('removeCustomCategory', { name }, (res)=>{ if (res && res.error) showToast(res.error); });
 };
 window.handleStartGame = function(){
   socket.emit('startGame', {}, (res)=>{ if (res && res.error) showToast(res.error); });
@@ -469,6 +489,7 @@ function renderDiscuss(){
   </div>
   ${renderSkillEligibleButton()}
   ${isHost() ? `<button class="btn btn-danger" onclick="handleGoVote()">🏛 ไปหน้าโหวต</button>` : ''}
+  ${isHost() ? `<button class="btn btn-secondary" onclick="handleSpyGuessed()">🔑 สปายทายคำลับถูก (จบเกมทันที)</button>` : ''}
   ${skillPickerOpen ? renderSkillModal() : ''}
   `;
 }
