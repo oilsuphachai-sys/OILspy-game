@@ -413,6 +413,7 @@ function renderReveal(){
     <p class="dim">หมวดหมู่: ${g.category}</p>
     <div class="word">${g.word ? g.word : '?????'}</div>
     ${g.role==='spy' ? '<p class="dim">คุณไม่รู้คำลับ ฟังเพื่อนคุยให้ดีแล้วแกล้งพูดกลืนไปกับคนอื่น พยายามเดาคำลับให้ออกโดยไม่ให้ใครจับได้ว่าคุณคือสปาย</p>' : ''}
+    ${g.fellowSpies && g.fellowSpies.length ? `<p style="color:var(--red);font-weight:600;">🤝 เพื่อนสปายด้วยกัน: ${g.fellowSpies.map(escapeHtml).join(', ')}</p>` : ''}
     ${g.role==='joker' ? '<p class="dim">คุณคือโจ๊กเกอร์ ถ้าคุณถูกโหวตออกแบบปกติ คุณชนะทันที! เล่นให้น่าสงสัยเข้าไว้</p>' : ''}
     ${g.role==='fbi' ? '<p class="dim">คุณมีสิทธิ์คัดผู้เล่น 1 คนออกจากเกมทันที ใช้ได้ 1 ครั้งตลอดเกม กดปุ่ม "ใช้สกิล" ในหน้าสนทนาเมื่อพร้อม</p>' : ''}
     ${g.role==='seer' ? '<p class="dim">คุณสามารถแอบดูบทบาทของผู้เล่น 1 คนได้ 1 ครั้งตลอดเกม กดปุ่ม "ใช้สกิล" ในหน้าสนทนาเมื่อพร้อม</p>' : ''}
@@ -477,6 +478,7 @@ function renderMyRoleToggle(){
         </div>
         <p class="dim">หมวดหมู่: ${g.category}</p>
         <div class="word" style="font-size:20px;">${g.word ? g.word : '?????'}</div>
+        ${g.fellowSpies && g.fellowSpies.length ? `<p style="color:var(--red);font-weight:600;">🤝 เพื่อนสปายด้วยกัน: ${g.fellowSpies.map(escapeHtml).join(', ')}</p>` : ''}
       </div>`;
     }
   }
