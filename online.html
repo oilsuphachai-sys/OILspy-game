@@ -131,6 +131,7 @@ let CATEGORY_LIST = ["อาหาร","สถานที่","อาชีพ"
 let localSelectedCategories = new Set(CATEGORY_LIST);
 let voteSelection = null;
 let skillPickerOpen = false;
+let showMyRoleCard = false;
 
 function showToast(msg){
   toastMsg = msg;
@@ -172,7 +173,10 @@ function connect(url, onReady){
 
   socket.on('roomUpdate', (payload)=>{ state = payload; render(); });
   socket.on('yourRole', (payload)=>{ myRole = payload; skillResult=null; render(); });
-  socket.on('eliminationAnnounced', (p)=>{ showToast('🚪 ' + p.name + ' ถูกคัดออก (' + p.roleLabel + ')'); });
+  socket.on('eliminationAnnounced', (p)=>{
+    const isMe = session && p.id===session.playerId;
+    showToast('🚪 ' + p.name + ' ถูกคัดออกจากการโหวต' + (isMe ? (' (' + p.roleLabel + ')') : ''));
+  });
   socket.on('fbiRevealBroadcast', (p)=>{ showToast('🕵️ FBI คัดออก: ' + p.name + ' (' + p.roleLabel + ')'); });
   socket.on('kicked', ()=>{
     showToast('คุณถูกเตะออกจากห้องโดยหัวห้อง');
@@ -450,12 +454,39 @@ function renderEliminatedInfo(){
     <div class="card">
       <h3>🪦 ผู้เล่นที่ถูกคัดออกแล้ว (${list.length})</h3>
       <div class="player-list">
-        ${list.map(e=>`<div class="player-item"><span class="name">${escapeHtml(e.name)}</span><span class="role-pill ${e.role}">${labelForRole(e.role)}</span></div>`).join('')}
+        ${list.map(e=>{
+          const revealRole = e.by==='fbi' || e.id===session.playerId;
+          return `<div class="player-item"><span class="name">${escapeHtml(e.name)}</span>${revealRole ? `<span class="role-pill ${e.role}">${labelForRole(e.role)}</span>` : `<span class="dim" style="font-size:12px;">ไม่เปิดเผยบทบาท</span>`}</div>`;
+        }).join('')}
       </div>
     </div>`;
   }
   return html;
 }
+
+function renderMyRoleToggle(){
+  let html = `<button class="btn btn-secondary" onclick="handleToggleMyRole()">👁 ${showMyRoleCard?'ซ่อน':'ดู'}บทบาทของฉัน (เผื่อลืม)</button>`;
+  if (showMyRoleCard){
+    if (!myRole){ html += `<div class="card center"><p class="dim">กำลังโหลด...</p></div>`; }
+    else {
+      const g = myRole;
+      html += `
+      <div class="role-card">
+        <div class="role-circle ${g.role==='spy'?'':g.role}" style="width:100px;height:100px;">
+          <div class="r1" style="font-size:15px;">${g.roleLabel}</div>
+        </div>
+        <p class="dim">หมวดหมู่: ${g.category}</p>
+        <div class="word" style="font-size:20px;">${g.word ? g.word : '?????'}</div>
+      </div>`;
+    }
+  }
+  return html;
+}
+window.handleToggleMyRole = function(){
+  showMyRoleCard = !showMyRoleCard;
+  if (showMyRoleCard && !myRole) socket.emit('getMyRole', {});
+  render();
+};
 
 function renderDiscuss(){
   const t = state.timer;
@@ -488,6 +519,7 @@ function renderDiscuss(){
     </div>
   </div>
   ${renderSkillEligibleButton()}
+  ${renderMyRoleToggle()}
   ${isHost() ? `<button class="btn btn-danger" onclick="handleGoVote()">🏛 ไปหน้าโหวต</button>` : ''}
   ${isHost() ? `<button class="btn btn-secondary" onclick="handleSpyGuessed()">🔑 สปายทายคำลับถูก (จบเกมทันที)</button>` : ''}
   ${skillPickerOpen ? renderSkillModal() : ''}
@@ -557,6 +589,7 @@ function renderVote(){
     <button class="btn btn-secondary" onclick="handleSkipVote()">⏭ ข้ามรอบนี้ (หัวห้องสั่งเอง ไม่ต้องรอโหวต)</button>
     <button class="btn btn-secondary" onclick="handleSpyGuessed()">🔑 สปายทายคำลับถูก (จบเกมทันที)</button>
   </div>` : ''}
+  ${renderMyRoleToggle()}
   `;
 }
 window.castVote = function(targetId){ socket.emit('castVote', { targetId }); };
